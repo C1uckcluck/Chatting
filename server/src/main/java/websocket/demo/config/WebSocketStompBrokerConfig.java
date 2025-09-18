@@ -1,11 +1,15 @@
 package websocket.demo.config;
 
 
+import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import websocket.demo.config.interceptor.HttpConnectionInterceptor;
 
 /**
  * stomp 메세징 처리를 구현하는 인터페이스 구현체
@@ -13,7 +17,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  */
 @EnableWebSocketMessageBroker
 @Configuration
+@AllArgsConstructor
 public class WebSocketStompBrokerConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final ChannelInterceptor stompInterceptor;
 
     // 메세지 브로커 옵션 구성
     @Override
@@ -34,7 +41,14 @@ public class WebSocketStompBrokerConfig implements WebSocketMessageBrokerConfigu
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry
                 .addEndpoint("/ws-stomp")
+                .addInterceptors(new HttpConnectionInterceptor())
                 .setAllowedOrigins("http://127.0.0.1:5500")
+                .setAllowedOriginPatterns("*")
                 .withSockJS();
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(stompInterceptor);
     }
 }
