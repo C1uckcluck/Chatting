@@ -1,0 +1,13 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_boot
+    environment:
+      MYSQL_DATABASE: chatdb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - ../db/data:/var/lib/mysql
