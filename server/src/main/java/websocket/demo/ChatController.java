@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RestController;
 import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.dto.ChatMessageType;
 
+import websocket.demo.service.ChatMessageService;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -16,7 +18,8 @@ import java.time.format.DateTimeFormatter;
 public class ChatController {
 
     private final SimpMessagingTemplate template; // 특정 사용자에게 메세지를 보내는데 사용되는 STOMP Template
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm");
+    private final ChatMessageService chatMessageService;
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
 
     // /pub/roomId에 메세지 전달시 호출되는 메소드
@@ -27,6 +30,10 @@ public class ChatController {
         if (chatMessageDto.type() == ChatMessageType.TALK) {
             chatMessageDto = new ChatMessageDto(chatMessageDto.type(), chatMessageDto.sender(),
                     chatMessageDto.content(), LocalDateTime.now().format(formatter));
+
+            // DB에 메시지 저장
+            chatMessageService.saveMessage(chatMessageDto, roomId);
+
             template.convertAndSend("/sub/" + roomId, chatMessageDto);
         }
     }

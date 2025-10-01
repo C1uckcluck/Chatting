@@ -4,9 +4,10 @@ package websocket.demo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import websocket.demo.dto.ChatRoomDto;
-import websocket.demo.service.ChatRoomRepository;
+import websocket.demo.service.ChatRoomService;
 
 import java.util.Collection;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -14,23 +15,23 @@ import java.util.Collection;
 
 public class ChatRoomController {
 
-    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomService chatRoomService;
 
     // 모든 채팅방 목록 반환
     @GetMapping("/rooms")
-    public Collection<ChatRoomDto> getAllRooms() {
-        return chatRoomRepository.findAll();
+    public List<ChatRoomDto> getAllRooms() {
+        return chatRoomService.findAll();
     }
 
     // 채팅방 생성
     @PostMapping("/rooms")
     public ChatRoomDto createRoom(@RequestBody String name) {
-        return chatRoomRepository.create(name);
+        return chatRoomService.create(name);
     }
 
     // 특정 채팅방 정보 반환
     @GetMapping("/rooms/{roomId}")
     public ChatRoomDto getRoomById(@PathVariable String roomId) {
-        return chatRoomRepository.findById(roomId);
+        return chatRoomService.findById(roomId);
     }
 }

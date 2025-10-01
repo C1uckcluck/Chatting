@@ -12,6 +12,8 @@ import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.dto.ChatMessageType;
 
+import websocket.demo.service.ChatMessageService;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -24,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SessionEventHandler {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
+    private final ChatMessageService chatMessageService;
     private final Map<String, String> sessionRoomIdMap = new ConcurrentHashMap<>();
     private final Map<String, String> sessionUsernameMap = new ConcurrentHashMap<>();
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -40,7 +43,7 @@ public class SessionEventHandler {
 
     // subscribe할 때 호출되는 메소드
     @EventListener
-    public void handleWebsocketSubscribeListener(SessionSubscribeEvent event){
+    public void handleWebsocketSubscribeListener(SessionSubscribeEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         String sessionId = headerAccessor.getSessionId();
         String destination = headerAccessor.getDestination(); // /sub/{roomId}
@@ -53,6 +56,10 @@ public class SessionEventHandler {
             String username = sessionUsernameMap.get(sessionId);
             ChatMessageDto chatMessage = new ChatMessageDto(ChatMessageType.ENTER, username, username + "님이 입장했습니다.",
                     LocalDateTime.now().format(formatter));
+
+            // DB에 메시지 저장
+            chatMessageService.saveMessage(chatMessage, roomId);
+
             simpMessagingTemplate.convertAndSend("/sub/" + roomId, chatMessage);
         }
     }
@@ -74,6 +81,10 @@ public class SessionEventHandler {
                     username + "님이 퇴장했습니다.",
                     LocalDateTime.now().format(formatter)
             );
+
+            // DB에 메시지 저장
+            chatMessageService.saveMessage(chatMessage, roomId);
+
             simpMessagingTemplate.convertAndSend("/sub/" + roomId, chatMessage);
 
             // 맵에서 세션 정보 제거
