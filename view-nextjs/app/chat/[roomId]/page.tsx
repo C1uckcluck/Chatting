@@ -4,6 +4,8 @@ import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { useParams } from 'next/navigation'; // Import useParams
 import { useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 // 메시지 타입을 정의합니다.
 interface ChatMessage {
@@ -11,43 +13,73 @@ interface ChatMessage {
     sender: string;
     content: string;
     sendAt: string;
+    unreadCount: number;
 }
 
 export default function ChatRoom() {
-    const params = useParams(); // Get params
-    const roomId = params.roomId as string; // Get roomId from params
+    const params = useParams();
+    const router = useRouter();
+    const roomId = params.roomId as string;
 
     const [roomName, setRoomName] = useState<string>('');
     const [messageInput, setMessageInput] = useState<string>('');
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [sender] = useState<string>("User_" + Math.floor(Math.random() * 1000));
+    const [sender, setSender] = useState<string>('');
 
     const clientRef = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
 
     const effectRan = useRef(false);
 
-    // Fetch room name when component mounts
+    // 컴포넌트 마운트 시 사용자 이름과 방 정보를 가져옵니다.
     useEffect(() => {
+        const savedUsername = localStorage.getItem('chatUsername');
+        if (!savedUsername) {
+            alert('사용자 이름이 설정되지 않았습니다. 로비로 돌아갑니다.');
+            router.push('/');
+            return;
+        }
+        setSender(savedUsername);
+
         if (!roomId) return;
-        const fetchRoomName = async () => {
+
+        const fetchRoomData = async () => {
             try {
-                const response = await fetch(`http://localhost:8080/chat/rooms/${roomId}`);
-                if (response.ok) {
-                    const roomData = await response.json();
+                // Fetch room name
+                const nameResponse = await fetch(`http://localhost:8080/chat/rooms/${roomId}`);
+                if (nameResponse.ok) {
+                    const roomData = await nameResponse.json();
                     setRoomName(roomData.name);
-                } else {
-                    console.error('Failed to fetch room name');
                 }
+
+                // Fetch message history
+                const messagesResponse = await fetch(`http://localhost:8080/chat/rooms/${roomId}/messages`);
+                if (messagesResponse.ok) {
+                    const history = await messagesResponse.json();
+                    setMessages(history);
+                }
+
+                // Mark messages as read
+                await fetch(`http://localhost:8080/chat/rooms/${roomId}/read`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain',
+                    },
+                    body: savedUsername,
+                });
+
             } catch (error) {
-                console.error('Error fetching room name:', error);
+                console.error('Error fetching room data:', error);
             }
         };
-        fetchRoomName();
-    }, [roomId]);
 
+        fetchRoomData();
+    }, [roomId, router]);
+
+    // WebSocket 연결 로직
     useEffect(() => {
-        if (effectRan.current === true || !roomId) {
+        // sender가 설정된 후에만 연결을 시도합니다. 또는 effectRan.current가 true인 경우
+        if (!sender || !roomId || effectRan.current === true) {
             return;
         }
 
@@ -71,7 +103,6 @@ export default function ChatRoom() {
             const subscriptionDestination = `/sub/${roomId}`;
             subscriptionRef.current = client.subscribe(subscriptionDestination, (message: IMessage) => {
                 const receivedMessage: ChatMessage = JSON.parse(message.body);
-                console.log(receivedMessage)
                 setMessages(prevMessages => [...prevMessages, receivedMessage]);
             });
             console.log(`구독 시작: ${subscriptionDestination}`);
@@ -94,16 +125,17 @@ export default function ChatRoom() {
                 clientRef.current.deactivate();
             }
         };
-    }, [roomId]);
+    }, [roomId, sender]);
 
     const sendMessage = () => {
         if (messageInput.trim() && clientRef.current && clientRef.current.connected) {
             const destination = `/pub/${roomId}`;
-            const chatMessage: ChatMessage = {
+            const chatMessage = {
                 type: 'TALK',
                 sender: sender,
                 content: messageInput,
-                sendAt: '',
+                sendAt: '', // 서버에서 설정
+                unreadCount: 0 // 서버에서 설정
             };
 
             clientRef.current.publish({
@@ -128,6 +160,9 @@ export default function ChatRoom() {
 
     return (
         <div className="container">
+            <div style={{ marginBottom: '10px' }}>
+                <Link href="/">← 로비로 돌아가기</Link>
+            </div>
             <h3 id="roomTitle">{roomName || '채팅방 로딩 중...'}</h3>
             <ul id="messages">
                 {messages.map((msg, index) => {
@@ -147,6 +182,11 @@ export default function ChatRoom() {
                             <div className="message-body">
                                 {!isSentByMe && <div className="sender">{msg.sender}</div>}
                                 <div className="message-line">
+                                    {isSentByMe && msg.unreadCount > 0 && (
+                                        <div className="timestamp" style={{ color: '#fbc02d' }}>
+                                            {msg.unreadCount}
+                                        </div>
+                                    )}
                                     {isSentByMe && (
                                         <div className="timestamp">
                                             <span className="timestamp-oval">{msg.sendAt}</span>
