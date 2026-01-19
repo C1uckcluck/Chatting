@@ -2,6 +2,6 @@ package websocket.demo.dto;
 
 public enum ChatMessageType {
 
-    TALK, ENTER, LEAVE, IMAGE, READ_UPDATE
+    TALK, ENTER, LEAVE, IMAGE, READ_UPDATE, PRESENCE_UPDATE
 
 }

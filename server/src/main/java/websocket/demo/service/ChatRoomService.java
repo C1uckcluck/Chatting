@@ -39,6 +39,10 @@ public class ChatRoomService {
                 .collect(Collectors.toList());
     }
 
+    public List<String> findUsernamesByRoomId(String roomId) {
+        return chatRoomMemberRepository.findUsernamesByRoomId(roomId);
+    }
+
     @Transactional
     public boolean enterRoom(String roomId, String username) {
         if (chatRoomMemberRepository.existsByChatRoom_RoomIdAndUsername(roomId, username)) {

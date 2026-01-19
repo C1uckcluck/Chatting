@@ -45,12 +45,19 @@ public class ChatMessageController {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("Empty file");
         }
+        if (file.getSize() > 3L * 1024 * 1024) {
+            throw new IllegalArgumentException("Image size must be 3MB or less");
+        }
         String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
+        String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "image" : file.getOriginalFilename());
+        String lowerName = originalName.toLowerCase();
+        boolean hasImageType = contentType != null && contentType.startsWith("image/");
+        boolean hasImageExt = lowerName.endsWith(".png") || lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")
+                || lowerName.endsWith(".gif") || lowerName.endsWith(".webp");
+        if (!hasImageType && !hasImageExt) {
             throw new IllegalArgumentException("Only image uploads are allowed");
         }
 
-        String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "image" : file.getOriginalFilename());
         String safeName = originalName.replaceAll("[^a-zA-Z0-9._-]", "_");
         String storedName = UUID.randomUUID() + "_" + safeName;
 

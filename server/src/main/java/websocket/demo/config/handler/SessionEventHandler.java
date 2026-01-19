@@ -14,6 +14,9 @@ import websocket.demo.domain.ChatRoomMemberEntity;
 import websocket.demo.repository.ChatRoomJpaRepository;
 import websocket.demo.repository.ChatRoomMemberJpaRepository;
 import websocket.demo.service.ChatMessageService;
+import websocket.demo.service.RoomPresenceService;
+import websocket.demo.dto.PresenceUpdateDto;
+import websocket.demo.dto.ChatMessageType;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -26,6 +29,7 @@ public class SessionEventHandler {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final ChatMessageService chatMessageService;
+    private final RoomPresenceService roomPresenceService;
     private final ChatRoomJpaRepository chatRoomRepository;
     private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
     private final Map<String, String> sessionRoomIdMap = new ConcurrentHashMap<>();
@@ -80,6 +84,17 @@ public class SessionEventHandler {
                             }
                     );
 
+            String displayName = sessionDisplayNameMap.get(sessionId);
+            if (displayName == null) {
+                displayName = username;
+            }
+            if (roomPresenceService.markOnline(roomId, username)) {
+                simpMessagingTemplate.convertAndSend(
+                        "/sub/" + roomId,
+                        new PresenceUpdateDto(ChatMessageType.PRESENCE_UPDATE, username, displayName, true)
+                );
+            }
+
             log.info("User {} subscribed to room {}", sessionId, roomId);
         }
     }
@@ -94,6 +109,16 @@ public class SessionEventHandler {
 
         if (roomId != null && username != null) {
             log.info("User {} disconnected from room {}", sessionId, roomId);
+            String displayName = sessionDisplayNameMap.get(sessionId);
+            if (displayName == null) {
+                displayName = username;
+            }
+            if (roomPresenceService.markOffline(roomId, username)) {
+                simpMessagingTemplate.convertAndSend(
+                        "/sub/" + roomId,
+                        new PresenceUpdateDto(ChatMessageType.PRESENCE_UPDATE, username, displayName, false)
+                );
+            }
             sessionRoomIdMap.remove(sessionId);
             sessionUsernameMap.remove(sessionId);
             sessionDisplayNameMap.remove(sessionId);

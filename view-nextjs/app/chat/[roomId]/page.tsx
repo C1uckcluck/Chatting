@@ -7,7 +7,13 @@ import { useEffect, useRef, useState } from "react";
 import SockJS from "sockjs-client";
 
 interface ChatMessage {
-    type: "ENTER" | "TALK" | "LEAVE" | "IMAGE" | "READ_UPDATE";
+    type:
+        | "ENTER"
+        | "TALK"
+        | "LEAVE"
+        | "IMAGE"
+        | "READ_UPDATE"
+        | "PRESENCE_UPDATE";
     id?: number | null;
     sender: string;
     content: string;
@@ -15,12 +21,21 @@ interface ChatMessage {
     sendAt: string;
     unreadCount: number;
     updates?: { messageId: number; unreadCount: number }[];
+    username?: string;
+    nickname?: string;
+    online?: boolean;
 }
 
 interface ApiResponse<T> {
     success: boolean;
     data: T;
     message?: string | null;
+}
+
+interface Participant {
+    username: string;
+    nickname: string;
+    online: boolean;
 }
 
 export default function ChatRoom() {
@@ -33,6 +48,7 @@ export default function ChatRoom() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [sender, setSender] = useState<string>("");
     const [selfNicknames, setSelfNicknames] = useState<string[]>([]);
+    const [participants, setParticipants] = useState<Participant[]>([]);
 
     const clientRef = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
@@ -80,6 +96,17 @@ export default function ChatRoom() {
                         await messagesResponse.json().catch(() => null);
                     if (payload?.success) {
                         setMessages(payload.data || []);
+                    }
+                }
+
+                const participantsResponse = await fetch(
+                    `/chat/rooms/${roomId}/participants`,
+                );
+                if (participantsResponse.ok) {
+                    const payload: ApiResponse<Participant[]> | null =
+                        await participantsResponse.json().catch(() => null);
+                    if (payload?.success) {
+                        setParticipants(payload.data || []);
                     }
                 }
 
@@ -170,6 +197,42 @@ export default function ChatRoom() {
                                     : msg,
                             ),
                         );
+                        return;
+                    }
+                    if (
+                        receivedMessage.type === "PRESENCE_UPDATE" &&
+                        receivedMessage.username
+                    ) {
+                        setParticipants((prev) => {
+                            const exists = prev.some(
+                                (p) => p.username === receivedMessage.username,
+                            );
+                            if (exists) {
+                                return prev.map((p) =>
+                                    p.username === receivedMessage.username
+                                        ? {
+                                              ...p,
+                                              online:
+                                                  receivedMessage.online ??
+                                                  p.online,
+                                              nickname:
+                                                  receivedMessage.nickname ??
+                                                  p.nickname,
+                                          }
+                                        : p,
+                                );
+                            }
+                            return [
+                                ...prev,
+                                {
+                                    username: receivedMessage.username,
+                                    nickname:
+                                        receivedMessage.nickname ??
+                                        receivedMessage.username,
+                                    online: receivedMessage.online ?? false,
+                                },
+                            ];
+                        });
                         return;
                     }
                     setMessages((prevMessages) => [
@@ -273,6 +336,11 @@ export default function ChatRoom() {
     ) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (file.size > 1 * 1024 * 1024) {
+            alert("1MB 이하의 이미지만 업로드할 수 있습니다.");
+            event.target.value = "";
+            return;
+        }
         if (!clientRef.current || !clientRef.current.connected) {
             alert("연결 상태를 확인해 주세요.");
             return;
@@ -285,10 +353,20 @@ export default function ChatRoom() {
                 method: "POST",
                 body: formData,
             });
-            const payload: ApiResponse<string> | null = await response
-                .json()
-                .catch(() => null);
+            const payloadText = await response.text();
+            let payload: ApiResponse<string> | null = null;
+            try {
+                payload = payloadText
+                    ? (JSON.parse(payloadText) as ApiResponse<string>)
+                    : null;
+            } catch {
+                payload = null;
+            }
             if (!response.ok || !payload?.success || !payload.data) {
+                console.error("Upload failed", {
+                    status: response.status,
+                    body: payloadText,
+                });
                 throw new Error(
                     payload?.message || "이미지 업로드에 실패했습니다.",
                 );
@@ -442,6 +520,59 @@ export default function ChatRoom() {
                     accept="image/*"
                     onChange={handleImageUpload}
                 />
+            </div>
+            <div
+                style={{
+                    marginTop: "12px",
+                    border: "1px solid #eee",
+                    borderRadius: "12px",
+                    padding: "12px",
+                    background: "#fff",
+                }}
+            >
+                <div
+                    style={{
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        marginBottom: "10px",
+                    }}
+                >
+                    참여자
+                </div>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                    }}
+                >
+                    {participants.map((participant) => (
+                        <div
+                            key={participant.username}
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                            }}
+                        >
+                            <span style={{ fontSize: "14px" }}>
+                                {participant.nickname}
+                            </span>
+                            <span
+                                style={{
+                                    width: "8px",
+                                    height: "8px",
+                                    borderRadius: "50%",
+                                    display: "inline-block",
+                                    backgroundColor: participant.online
+                                        ? "#2e7d32"
+                                        : "#111",
+                                }}
+                            />
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
