@@ -12,6 +12,10 @@ import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.dto.ChatMessageType;
 
+import websocket.demo.domain.ChatRoomEntity;
+import websocket.demo.domain.ChatRoomMemberEntity;
+import websocket.demo.repository.ChatRoomJpaRepository;
+import websocket.demo.repository.ChatRoomMemberJpaRepository;
 import websocket.demo.service.ChatMessageService;
 
 import java.time.LocalDateTime;
@@ -27,6 +31,8 @@ public class SessionEventHandler {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final ChatMessageService chatMessageService;
+    private final ChatRoomJpaRepository chatRoomRepository;
+    private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
     private final Map<String, String> sessionRoomIdMap = new ConcurrentHashMap<>();
     private final Map<String, String> sessionUsernameMap = new ConcurrentHashMap<>();
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -36,14 +42,25 @@ public class SessionEventHandler {
     public void handleSessionConnect(SessionConnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         String sessionId = headerAccessor.getSessionId();
-        String username = Objects.requireNonNull(headerAccessor.getFirstNativeHeader("username"));
+        
+        String username = "Unknown";
+        if (headerAccessor.getUser() != null) {
+            username = headerAccessor.getUser().getName();
+        } else {
+             // 만약 헤더에 username이 있다면 fallback (기존 로직 유지 고려)
+             String headerUsername = headerAccessor.getFirstNativeHeader("username");
+             if (headerUsername != null) {
+                 username = headerUsername;
+             }
+        }
+        
         sessionUsernameMap.put(sessionId, username);
         log.info("New WebSocket connection: sessionId={}, username={}", sessionId, username);
     }
 
     // subscribe할 때 호출되는 메소드
     @EventListener
-    public void handleWebsocketSubscribeListener(SessionSubscribeEvent event) {
+    public void handleWebsocketSubscribeListener(SessionSubscribeEvent event){
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         String sessionId = headerAccessor.getSessionId();
         String destination = headerAccessor.getDestination(); // /sub/{roomId}
@@ -51,11 +68,25 @@ public class SessionEventHandler {
         if (destination != null) {
             String roomId = destination.substring(destination.lastIndexOf('/') + 1);
             sessionRoomIdMap.put(sessionId, roomId);
-            log.info("User {} subscribed to room {}", sessionId, roomId);
 
             String username = sessionUsernameMap.get(sessionId);
+
+            // 사용자를 채팅방 멤버로 추가 (이미 존재하지 않는 경우)
+            ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
+                    .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
+            chatRoomMemberRepository.findById(new ChatRoomMemberEntity.ChatRoomMemberId(chatRoom, username))
+                    .ifPresentOrElse(
+                            member -> log.info("User {} is already a member of room {}", username, roomId),
+                            () -> {
+                                chatRoomMemberRepository.save(new ChatRoomMemberEntity(chatRoom, username));
+                                log.info("User {} added to room {}", username, roomId);
+                            }
+                    );
+
+            log.info("User {} subscribed to room {}", sessionId, roomId);
+
             ChatMessageDto chatMessage = new ChatMessageDto(ChatMessageType.ENTER, username, username + "님이 입장했습니다.",
-                    LocalDateTime.now().format(formatter));
+                    LocalDateTime.now().format(formatter), 0);
 
             // DB에 메시지 저장
             chatMessageService.saveMessage(chatMessage, roomId);
@@ -79,7 +110,8 @@ public class SessionEventHandler {
                     ChatMessageType.LEAVE,
                     username,
                     username + "님이 퇴장했습니다.",
-                    LocalDateTime.now().format(formatter)
+                    LocalDateTime.now().format(formatter),
+                    0
             );
 
             // DB에 메시지 저장

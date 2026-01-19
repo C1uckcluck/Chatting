@@ -31,13 +31,16 @@ public class ChatMessageEntity {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    private Integer initialUnreadCount;
+
     private LocalDateTime sendAt;
 
-    public ChatMessageEntity(ChatRoomEntity chatRoom, ChatMessageType type, String sender, String content, LocalDateTime sendAt) {
+    public ChatMessageEntity(ChatRoomEntity chatRoom, ChatMessageType type, String sender, String content, LocalDateTime sendAt, Integer initialUnreadCount) {
         this.chatRoom = chatRoom;
         this.type = type;
         this.sender = sender;
         this.content = content;
         this.sendAt = sendAt;
+        this.initialUnreadCount = initialUnreadCount;
     }
 }

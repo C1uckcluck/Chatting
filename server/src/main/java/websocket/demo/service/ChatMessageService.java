@@ -12,6 +12,8 @@ import websocket.demo.repository.ChatRoomJpaRepository;
 
 import websocket.demo.dto.ChatMessageType;
 
+import websocket.demo.repository.ChatRoomMemberJpaRepository;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -23,6 +25,7 @@ public class ChatMessageService {
 
     private final ChatMessageJpaRepository chatMessageRepository;
     private final ChatRoomJpaRepository chatRoomRepository;
+    private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     @Transactional
@@ -33,12 +36,17 @@ public class ChatMessageService {
         // DTO의 sendAt을 LocalDateTime으로 변환
         LocalDateTime sendAt = LocalDateTime.parse(messageDto.sendAt(), formatter);
 
+        // 안 읽은 수 계산 (전체 멤버 - 1(본인))
+        long memberCount = chatRoomMemberRepository.countByChatRoom_RoomId(roomId);
+        int unreadCount = (int) Math.max(0, memberCount - 1);
+
         ChatMessageEntity chatMessage = new ChatMessageEntity(
                 chatRoom,
                 messageDto.type(),
                 messageDto.sender(),
                 messageDto.content(),
-                sendAt
+                sendAt,
+                unreadCount
         );
 
         chatMessageRepository.save(chatMessage);
@@ -51,7 +59,8 @@ public class ChatMessageService {
                         entity.getType(),
                         entity.getSender(),
                         entity.getContent(),
-                        entity.getSendAt().format(formatter)
+                        entity.getSendAt().format(formatter),
+                        entity.getInitialUnreadCount()
                 ))
                 .collect(Collectors.toList());
     }
