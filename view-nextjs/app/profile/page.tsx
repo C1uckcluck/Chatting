@@ -9,6 +9,12 @@ interface MemberProfile {
     nickname: string;
 }
 
+interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+    message?: string | null;
+}
+
 export default function ProfilePage() {
     const router = useRouter();
     const [profile, setProfile] = useState<MemberProfile | null>(null);
@@ -29,9 +35,12 @@ export default function ProfilePage() {
                 if (!response.ok) {
                     throw new Error('Failed to fetch profile');
                 }
-                const data: MemberProfile = await response.json();
-                setProfile(data);
-                setNickname(data.nickname);
+                const payload: ApiResponse<MemberProfile> | null = await response.json().catch(() => null);
+                if (!payload?.success) {
+                    throw new Error(payload?.message || 'Failed to fetch profile');
+                }
+                setProfile(payload.data);
+                setNickname(payload.data.nickname);
             } catch (error) {
                 console.error('Profile fetch error:', error);
             }
@@ -55,15 +64,15 @@ export default function ProfilePage() {
                 }),
             });
 
-            const message = await response.text();
-            if (!response.ok) {
-                alert(message || '비밀번호 변경에 실패했습니다.');
+            const payload: ApiResponse<null> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                alert(payload?.message || '비밀번호 변경에 실패했습니다.');
                 return;
             }
             setPasswordCurrent('');
             setPasswordNext('');
             setPasswordNextConfirm('');
-            alert(message || '비밀번호가 변경되었습니다.');
+            alert(payload?.message || '비밀번호가 변경되었습니다.');
         } catch (error) {
             console.error('Password change error:', error);
             alert('비밀번호 변경 중 오류가 발생했습니다.');
@@ -85,9 +94,9 @@ export default function ProfilePage() {
                 }),
             });
 
-            const message = await response.text();
-            if (!response.ok) {
-                alert(message || '닉네임 변경에 실패했습니다.');
+            const payload: ApiResponse<null> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                alert(payload?.message || '닉네임 변경에 실패했습니다.');
                 return;
             }
             setNicknamePassword('');
@@ -101,7 +110,7 @@ export default function ProfilePage() {
                     : [...history, previousNickname];
                 localStorage.setItem('chatNicknameHistory', JSON.stringify(nextHistory));
             }
-            alert(message || '닉네임이 변경되었습니다.');
+            alert(payload?.message || '닉네임이 변경되었습니다.');
         } catch (error) {
             console.error('Nickname change error:', error);
             alert('닉네임 변경 중 오류가 발생했습니다.');

@@ -7,11 +7,18 @@ import { useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
 
 interface ChatMessage {
-    type: 'ENTER' | 'TALK' | 'LEAVE';
+    type: 'ENTER' | 'TALK' | 'LEAVE' | 'IMAGE';
     sender: string;
     content: string;
+    imageUrl?: string | null;
     sendAt: string;
     unreadCount: number;
+}
+
+interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+    message?: string | null;
 }
 
 export default function ChatRoom() {
@@ -52,14 +59,18 @@ export default function ChatRoom() {
 
                 const nameResponse = await fetch(`/chat/rooms/${roomId}`);
                 if (nameResponse.ok) {
-                    const roomData = await nameResponse.json();
-                    setRoomName(roomData.name);
+                    const payload: ApiResponse<{ name: string }> | null = await nameResponse.json().catch(() => null);
+                    if (payload?.success && payload.data?.name) {
+                        setRoomName(payload.data.name);
+                    }
                 }
 
                 const messagesResponse = await fetch(`/chat/rooms/${roomId}/messages`);
                 if (messagesResponse.ok) {
-                    const history = await messagesResponse.json();
-                    setMessages(history);
+                    const payload: ApiResponse<ChatMessage[]> | null = await messagesResponse.json().catch(() => null);
+                    if (payload?.success) {
+                        setMessages(payload.data || []);
+                    }
                 }
 
                 await fetch(`/chat/rooms/${roomId}/read`, {
@@ -128,13 +139,14 @@ export default function ChatRoom() {
     const sendMessage = () => {
         if (messageInput.trim() && clientRef.current && clientRef.current.connected) {
             const destination = `/pub/${roomId}`;
-            const chatMessage = {
-                type: 'TALK',
-                sender: sender,
-                content: messageInput,
-                sendAt: '',
-                unreadCount: 0,
-            };
+        const chatMessage = {
+            type: 'TALK',
+            sender: sender,
+            content: messageInput,
+            imageUrl: null,
+            sendAt: '',
+            unreadCount: 0,
+        };
 
             clientRef.current.publish({
                 destination: destination,
@@ -152,15 +164,55 @@ export default function ChatRoom() {
 
         try {
             const response = await fetch(`/chat/rooms/${roomId}/leave`, { method: 'POST' });
-            if (!response.ok) {
-                const message = await response.text();
-                alert(message || '채팅방 나가기에 실패했습니다.');
+            const payload: ApiResponse<null> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                const message = payload?.message || '채팅방 나가기에 실패했습니다.';
+                alert(message);
                 return;
             }
             router.push('/');
         } catch (error) {
             console.error('Leave room error:', error);
             alert('채팅방 나가기 중 오류가 발생했습니다.');
+        }
+    };
+
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!clientRef.current || !clientRef.current.connected) {
+            alert('연결 상태를 확인해 주세요.');
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch(`/chat/rooms/${roomId}/images`, {
+                method: 'POST',
+                body: formData,
+            });
+            const payload: ApiResponse<string> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success || !payload.data) {
+                throw new Error(payload?.message || '이미지 업로드에 실패했습니다.');
+            }
+
+            clientRef.current.publish({
+                destination: `/pub/${roomId}`,
+                body: JSON.stringify({
+                    type: 'IMAGE',
+                    sender: sender,
+                    content: '',
+                    imageUrl: payload.data,
+                    sendAt: '',
+                    unreadCount: 0,
+                }),
+            });
+        } catch (error) {
+            console.error('Image upload error:', error);
+            alert('이미지 업로드 중 오류가 발생했습니다.');
+        } finally {
+            event.target.value = '';
         }
     };
 
@@ -184,7 +236,7 @@ export default function ChatRoom() {
             <ul id="messages">
                 {messages.map((msg, index) => {
                     const isSentByMe = selfNicknames.includes(msg.sender) || msg.sender === sender;
-                    const isSystemMessage = msg.type !== 'TALK';
+                    const isSystemMessage = msg.type === 'ENTER' || msg.type === 'LEAVE';
 
                     if (isSystemMessage) {
                         return (
@@ -209,7 +261,15 @@ export default function ChatRoom() {
                                             <span className="timestamp-oval">{msg.sendAt}</span>
                                         </div>
                                     )}
-                                    <div className="content">{msg.content}</div>
+                                    {msg.type === 'TALK' && <div className="content">{msg.content}</div>}
+                                    {msg.type === 'IMAGE' && msg.imageUrl && (
+                                        <img
+                                            className="content"
+                                            src={msg.imageUrl}
+                                            alt="첨부 이미지"
+                                            style={{ maxWidth: '240px', maxHeight: '240px', objectFit: 'cover', borderRadius: '8px' }}
+                                        />
+                                    )}
                                     {!isSentByMe && (
                                         <div className="timestamp">
                                             <span className="timestamp-oval">{msg.sendAt}</span>
@@ -232,6 +292,9 @@ export default function ChatRoom() {
                     onKeyUp={(e) => e.key === 'Enter' && sendMessage()}
                 />
                 <button id="sendButton" onClick={sendMessage}>전송</button>
+            </div>
+            <div style={{ marginTop: '8px' }}>
+                <input type="file" accept="image/*" onChange={handleImageUpload} />
             </div>
         </div>
     );

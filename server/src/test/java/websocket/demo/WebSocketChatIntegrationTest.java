@@ -7,8 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
@@ -23,6 +25,8 @@ import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.dto.ChatMessageType;
 import websocket.demo.dto.LoginDto;
 import websocket.demo.dto.SignupDto;
+import websocket.demo.dto.ApiResponse;
+import websocket.demo.dto.ChatRoomDto;
 
 import java.lang.reflect.Type;
 import java.util.Collections;
@@ -98,11 +102,16 @@ public class WebSocketChatIntegrationTest {
         HttpEntity<String> request = new HttpEntity<>("Test Room", headers);
         
         // ChatRoomController.createRoom은 @RequestBody String name을 받음
-        ResponseEntity<websocket.demo.dto.ChatRoomDto> response = restTemplate.postForEntity("/chat/rooms", request, websocket.demo.dto.ChatRoomDto.class);
+        ResponseEntity<ApiResponse<ChatRoomDto>> response = restTemplate.exchange(
+                "/chat/rooms",
+                HttpMethod.POST,
+                request,
+                new ParameterizedTypeReference<ApiResponse<ChatRoomDto>>() {}
+        );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         
-        roomId = response.getBody().roomId();
+        roomId = response.getBody().data().roomId();
         System.out.println("Created Room ID: " + roomId);
     }
 
@@ -164,6 +173,7 @@ public class WebSocketChatIntegrationTest {
                 ChatMessageType.TALK,
                 null, // 서버에서 채워짐 (로그인 유저 닉네임)
                 "Hello WebSocket",
+                null,
                 null,
                 null
         );

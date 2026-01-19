@@ -3,6 +3,7 @@ package websocket.demo;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import websocket.demo.dto.ApiResponse;
 import websocket.demo.service.LastReadTimestampService;
 
 @RestController
@@ -13,7 +14,8 @@ public class ReadMessageController {
     private final LastReadTimestampService lastReadTimestampService;
 
     @PostMapping("/rooms/{roomId}/read")
-    public void markAsRead(@PathVariable String roomId, @RequestBody String username) {
+    public ApiResponse<Void> markAsRead(@PathVariable String roomId, @RequestBody String username) {
         lastReadTimestampService.updateLastReadTimestamp(roomId, username);
+        return ApiResponse.success(null);
     }
 }

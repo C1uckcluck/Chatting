@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
         source: '/members/:path*',
         destination: 'http://localhost:8080/members/:path*',
       },
+      {
+        source: '/uploads/:path*',
+        destination: 'http://localhost:8080/uploads/:path*',
+      },
       // Proxy websocket/stomp endpoint if needed, but usually SockJS/Stomp needs direct connection or specific proxying.
       // For now, let's proxy the API endpoints.
     ];

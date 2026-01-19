@@ -4,6 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+    message?: string | null;
+}
+
 export default function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -21,8 +27,9 @@ export default function LoginPage() {
                 body: JSON.stringify({ username, password }),
             });
 
-            if (response.ok) {
-                const data = await response.json();
+            const payload = await response.json().catch(() => null);
+            if (response.ok && payload?.success) {
+                const data = payload.data || {};
                 localStorage.setItem('chatUsername', data.username ?? username);
                 if (data.nickname) {
                     localStorage.setItem('chatNickname', data.nickname);
@@ -30,7 +37,7 @@ export default function LoginPage() {
                 localStorage.setItem('chatNicknameHistory', '[]');
                 router.push('/');
             } else {
-                const errorMsg = await response.text();
+                const errorMsg = payload?.message || '로그인에 실패했습니다.';
                 alert('로그인 실패: ' + errorMsg);
             }
         } catch (error) {

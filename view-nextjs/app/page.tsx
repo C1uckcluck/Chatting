@@ -9,6 +9,12 @@ interface ChatRoomDto {
     name: string;
 }
 
+interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+    message?: string | null;
+}
+
 export default function Lobby() {
     const [rooms, setRooms] = useState<ChatRoomDto[]>([]);
     const [myRooms, setMyRooms] = useState<ChatRoomDto[]>([]);
@@ -30,11 +36,11 @@ export default function Lobby() {
                 router.push('/login');
                 return;
             }
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
+            const payload: ApiResponse<ChatRoomDto[]> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.message || 'Network response was not ok');
             }
-            const data: ChatRoomDto[] = await response.json();
-            setRooms(data);
+            setRooms(payload.data || []);
         } catch (error) {
             console.error('Error fetching rooms:', error);
         }
@@ -47,11 +53,11 @@ export default function Lobby() {
                 router.push('/login');
                 return;
             }
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
+            const payload: ApiResponse<ChatRoomDto[]> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.message || 'Network response was not ok');
             }
-            const data: ChatRoomDto[] = await response.json();
-            setMyRooms(data);
+            setMyRooms(payload.data || []);
         } catch (error) {
             console.error('Error fetching my rooms:', error);
         }
@@ -77,8 +83,9 @@ export default function Lobby() {
                 return;
             }
 
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
+            const payload: ApiResponse<ChatRoomDto> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.message || 'Network response was not ok');
             }
             setNewRoomName('');
             await fetchRooms();
@@ -90,7 +97,11 @@ export default function Lobby() {
 
     const handleLogout = async () => {
         try {
-            await fetch('/auth/logout', { method: 'POST' });
+            const response = await fetch('/auth/logout', { method: 'POST' });
+            const payload: ApiResponse<null> | null = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.message || 'Logout failed');
+            }
             localStorage.removeItem('chatUsername');
             localStorage.removeItem('chatNickname');
             localStorage.removeItem('chatNicknameHistory');

@@ -24,6 +24,7 @@ public class ChatMessageEntity {
     private ChatRoomEntity chatRoom;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 10)
     private ChatMessageType type;
 
     private String sender;
@@ -31,15 +32,19 @@ public class ChatMessageEntity {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Column(columnDefinition = "TEXT")
+    private String imageUrl;
+
     private Integer initialUnreadCount;
 
     private LocalDateTime sendAt;
 
-    public ChatMessageEntity(ChatRoomEntity chatRoom, ChatMessageType type, String sender, String content, LocalDateTime sendAt, Integer initialUnreadCount) {
+    public ChatMessageEntity(ChatRoomEntity chatRoom, ChatMessageType type, String sender, String content, String imageUrl, LocalDateTime sendAt, Integer initialUnreadCount) {
         this.chatRoom = chatRoom;
         this.type = type;
         this.sender = sender;
         this.content = content;
+        this.imageUrl = imageUrl;
         this.sendAt = sendAt;
         this.initialUnreadCount = initialUnreadCount;
     }

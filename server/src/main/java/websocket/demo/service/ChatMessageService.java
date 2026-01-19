@@ -45,6 +45,7 @@ public class ChatMessageService {
                 messageDto.type(),
                 messageDto.sender(),
                 messageDto.content(),
+                messageDto.imageUrl(),
                 sendAt,
                 unreadCount
         );
@@ -59,6 +60,7 @@ public class ChatMessageService {
                         entity.getType(),
                         entity.getSender(),
                         entity.getContent(),
+                        entity.getImageUrl(),
                         entity.getSendAt().format(formatter),
                         entity.getInitialUnreadCount()
                 ))

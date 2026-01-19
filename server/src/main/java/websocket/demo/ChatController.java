@@ -42,13 +42,14 @@ public class ChatController {
         }
 
         // /sub/roomId 에 구독중인 사용자들에게 메세지 전달
-        if (chatMessageDto.type() == ChatMessageType.TALK) {
+        if (chatMessageDto.type() == ChatMessageType.TALK || chatMessageDto.type() == ChatMessageType.IMAGE) {
             // 안 읽은 수 계산을 위해 DTO를 새로 생성하지 않고, 서비스에서 처리하도록 위임
             // 이 컨트롤러에서는 시간만 설정하고 서비스로 전달
             ChatMessageDto messageToSend = new ChatMessageDto(
                     chatMessageDto.type(),
                     senderNickname, // 로그인한 사용자의 닉네임 사용
                     chatMessageDto.content(),
+                    chatMessageDto.imageUrl(),
                     LocalDateTime.now().format(formatter),
                     null // unreadCount는 서비스에서 계산 후 채워짐
             );

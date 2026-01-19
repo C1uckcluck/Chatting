@@ -39,8 +39,8 @@ class ChatRoomControllerTest {
 
         mockMvc.perform(get("/chat/rooms/my").with(user("user")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].roomId").value("room-1"))
-                .andExpect(jsonPath("$[0].name").value("Study Room"));
+                .andExpect(jsonPath("$.data[0].roomId").value("room-1"))
+                .andExpect(jsonPath("$.data[0].name").value("Study Room"));
     }
 
     @Test
@@ -56,7 +56,7 @@ class ChatRoomControllerTest {
 
         mockMvc.perform(get("/chat/rooms/my").with(user("user")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test
@@ -71,6 +71,6 @@ class ChatRoomControllerTest {
 
         mockMvc.perform(get("/chat/rooms/my").with(user("user")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].roomId").value("room-3"));
+                .andExpect(jsonPath("$.data[0].roomId").value("room-3"));
     }
 }

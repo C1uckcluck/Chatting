@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+    message?: string | null;
+}
+
 export default function SignupPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -21,11 +27,12 @@ export default function SignupPage() {
                 body: JSON.stringify({ username, password, nickname }),
             });
 
-            if (response.ok) {
+            const payload: ApiResponse<null> | null = await response.json().catch(() => null);
+            if (response.ok && payload?.success) {
                 alert('회원가입이 완료되었습니다. 로그인해 주세요.');
                 router.push('/login');
             } else {
-                const errorMsg = await response.text();
+                const errorMsg = payload?.message || '회원가입에 실패했습니다.';
                 alert('회원가입 실패: ' + errorMsg);
             }
         } catch (error) {

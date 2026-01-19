@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import websocket.demo.domain.Member;
 import websocket.demo.dto.LoginDto;
 import websocket.demo.dto.LoginResponseDto;
+import websocket.demo.dto.ApiResponse;
 import websocket.demo.dto.SignupDto;
 import websocket.demo.repository.MemberRepository;
 import websocket.demo.service.MemberService;
@@ -30,13 +31,13 @@ public class AuthController {
     private final MemberRepository memberRepository;
 
     @PostMapping("/signup")
-    public ResponseEntity<String> signup(@RequestBody SignupDto signupDto) {
+    public ResponseEntity<ApiResponse<Void>> signup(@RequestBody SignupDto signupDto) {
         memberService.signup(signupDto.username(), signupDto.password(), signupDto.nickname());
-        return ResponseEntity.ok("회원가입 성공");
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginDto loginDto, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponseDto>> login(@RequestBody LoginDto loginDto, HttpServletRequest request) {
         UsernamePasswordAuthenticationToken token =
                 new UsernamePasswordAuthenticationToken(loginDto.username(), loginDto.password());
 
@@ -48,6 +49,6 @@ public class AuthController {
 
         Member member = memberRepository.findByUsername(loginDto.username())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        return ResponseEntity.ok(new LoginResponseDto(member.getUsername(), member.getNickname()));
+        return ResponseEntity.ok(ApiResponse.success(new LoginResponseDto(member.getUsername(), member.getNickname())));
     }
 }

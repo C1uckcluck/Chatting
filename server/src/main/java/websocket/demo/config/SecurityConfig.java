@@ -10,6 +10,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import websocket.demo.dto.ApiResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -20,13 +22,18 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/ws-stomp/**", "/error").permitAll() // 로그인, 소켓 연결은 허용
+                        .requestMatchers("/auth/**", "/ws-stomp/**", "/error", "/uploads/**").permitAll() // 로그인, 소켓 연결은 허용
                         .anyRequest().authenticated() // 그 외는 인증 필요
                 )
                 .formLogin(AbstractHttpConfigurer::disable) // 기본 폼 로그인 비활성화
                 .logout(logout -> logout
                         .logoutUrl("/auth/logout")
-                        .logoutSuccessUrl("/auth/login")
+                        .logoutSuccessHandler((request, response, authentication) -> {
+                            response.setStatus(200);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            new ObjectMapper().writeValue(response.getWriter(), ApiResponse.success(null));
+                        })
                 );
 
         return http.build();

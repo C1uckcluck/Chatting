@@ -50,8 +50,8 @@ class MemberControllerTest {
 
         mockMvc.perform(get("/members/me").with(user("user")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("user"))
-                .andExpect(jsonPath("$.nickname").value("nick"));
+                .andExpect(jsonPath("$.data.username").value("user"))
+                .andExpect(jsonPath("$.data.nickname").value("nick"));
     }
 
     @Test
