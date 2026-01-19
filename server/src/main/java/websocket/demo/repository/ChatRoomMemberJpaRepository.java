@@ -15,6 +15,9 @@ public interface ChatRoomMemberJpaRepository extends JpaRepository<ChatRoomMembe
     @Query("select distinct crm.chatRoom from ChatRoomMemberEntity crm where crm.username = :username")
     List<ChatRoomEntity> findChatRoomsByUsername(@Param("username") String username);
 
+    @Query("select crm.username from ChatRoomMemberEntity crm where crm.chatRoom.roomId = :roomId")
+    List<String> findUsernamesByRoomId(@Param("roomId") String roomId);
+
     boolean existsByChatRoom_RoomIdAndUsername(String roomId, String username);
 
     long deleteByChatRoom_RoomIdAndUsername(String roomId, String username);
