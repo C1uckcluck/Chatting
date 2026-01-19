@@ -7,12 +7,14 @@ import { useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
 
 interface ChatMessage {
-    type: 'ENTER' | 'TALK' | 'LEAVE' | 'IMAGE';
+    type: 'ENTER' | 'TALK' | 'LEAVE' | 'IMAGE' | 'READ_UPDATE';
+    id?: number | null;
     sender: string;
     content: string;
     imageUrl?: string | null;
     sendAt: string;
     unreadCount: number;
+    updates?: { messageId: number; unreadCount: number }[];
 }
 
 interface ApiResponse<T> {
@@ -73,13 +75,7 @@ export default function ChatRoom() {
                     }
                 }
 
-                await fetch(`/chat/rooms/${roomId}/read`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'text/plain',
-                    },
-                    body: savedUsername,
-                });
+                await markAsRead(savedUsername);
             } catch (error) {
                 console.error('Error fetching room data:', error);
             }
@@ -87,6 +83,16 @@ export default function ChatRoom() {
 
         fetchRoomData();
     }, [roomId, router]);
+
+    const markAsRead = async (username: string) => {
+        await fetch(`/chat/rooms/${roomId}/read`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain',
+            },
+            body: username,
+        });
+    };
 
     useEffect(() => {
         if (!sender || !roomId || effectRan.current === true) {
@@ -113,7 +119,29 @@ export default function ChatRoom() {
             const subscriptionDestination = `/sub/${roomId}`;
             subscriptionRef.current = client.subscribe(subscriptionDestination, (message: IMessage) => {
                 const receivedMessage: ChatMessage = JSON.parse(message.body);
+                if (receivedMessage.type === 'READ_UPDATE' && receivedMessage.updates) {
+                    const updateMap = new Map(receivedMessage.updates.map((u) => [u.messageId, u.unreadCount]));
+                    setMessages((prevMessages) =>
+                        prevMessages.map((msg) =>
+                            msg.id && updateMap.has(msg.id)
+                                ? { ...msg, unreadCount: updateMap.get(msg.id) ?? msg.unreadCount }
+                                : msg
+                        )
+                    );
+                    return;
+                }
                 setMessages((prevMessages) => [...prevMessages, receivedMessage]);
+
+                const savedUsername = localStorage.getItem('chatUsername');
+                const isSelf =
+                    selfNicknames.includes(receivedMessage.sender) || receivedMessage.sender === sender;
+                if (
+                    savedUsername &&
+                    !isSelf &&
+                    (receivedMessage.type === 'TALK' || receivedMessage.type === 'IMAGE')
+                ) {
+                    markAsRead(savedUsername).catch((error) => console.error('Read update failed', error));
+                }
             });
             console.log(`Subscribed: ${subscriptionDestination}`);
         };
@@ -140,6 +168,7 @@ export default function ChatRoom() {
         if (messageInput.trim() && clientRef.current && clientRef.current.connected) {
             const destination = `/pub/${roomId}`;
         const chatMessage = {
+            id: null,
             type: 'TALK',
             sender: sender,
             content: messageInput,
@@ -200,6 +229,7 @@ export default function ChatRoom() {
             clientRef.current.publish({
                 destination: `/pub/${roomId}`,
                 body: JSON.stringify({
+                    id: null,
                     type: 'IMAGE',
                     sender: sender,
                     content: '',
@@ -269,6 +299,11 @@ export default function ChatRoom() {
                                             alt="첨부 이미지"
                                             style={{ maxWidth: '240px', maxHeight: '240px', objectFit: 'cover', borderRadius: '8px' }}
                                         />
+                                    )}
+                                    {!isSentByMe && msg.unreadCount > 0 && (
+                                        <div className="timestamp" style={{ color: '#fbc02d' }}>
+                                            {msg.unreadCount}
+                                        </div>
                                     )}
                                     {!isSentByMe && (
                                         <div className="timestamp">

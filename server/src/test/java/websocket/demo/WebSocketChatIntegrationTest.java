@@ -170,6 +170,7 @@ public class WebSocketChatIntegrationTest {
 
         // 발행 (Publish)
         ChatMessageDto messageToSend = new ChatMessageDto(
+                null,
                 ChatMessageType.TALK,
                 null, // 서버에서 채워짐 (로그인 유저 닉네임)
                 "Hello WebSocket",

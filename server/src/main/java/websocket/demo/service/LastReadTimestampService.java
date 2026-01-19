@@ -19,15 +19,25 @@ public class LastReadTimestampService {
     private final ChatRoomJpaRepository chatRoomRepository;
 
     @Transactional
-    public void updateLastReadTimestamp(String roomId, String username) {
+    public LocalDateTime updateLastReadTimestamp(String roomId, String username) {
         ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
 
         LastReadTimestampEntity lastReadTimestamp = lastReadTimestampRepository
                 .findByChatRoom_RoomIdAndUsername(roomId, username)
-                .orElse(new LastReadTimestampEntity(chatRoom, username, LocalDateTime.now()));
+                .orElse(null);
 
-        lastReadTimestamp.updateLastReadAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime previous = null;
+
+        if (lastReadTimestamp == null) {
+            lastReadTimestamp = new LastReadTimestampEntity(chatRoom, username, now);
+        } else {
+            previous = lastReadTimestamp.getLastReadAt();
+            lastReadTimestamp.updateLastReadAt(now);
+        }
+
         lastReadTimestampRepository.save(lastReadTimestamp);
+        return previous;
     }
 }

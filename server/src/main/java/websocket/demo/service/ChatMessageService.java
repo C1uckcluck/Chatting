@@ -10,8 +10,6 @@ import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.repository.ChatMessageJpaRepository;
 import websocket.demo.repository.ChatRoomJpaRepository;
 
-import websocket.demo.dto.ChatMessageType;
-
 import websocket.demo.repository.ChatRoomMemberJpaRepository;
 
 import java.time.LocalDateTime;
@@ -26,10 +24,10 @@ public class ChatMessageService {
     private final ChatMessageJpaRepository chatMessageRepository;
     private final ChatRoomJpaRepository chatRoomRepository;
     private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Transactional
-    public void saveMessage(ChatMessageDto messageDto, String roomId) {
+    public ChatMessageDto saveMessage(ChatMessageDto messageDto, String roomId) {
         ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
 
@@ -50,13 +48,23 @@ public class ChatMessageService {
                 unreadCount
         );
 
-        chatMessageRepository.save(chatMessage);
+        ChatMessageEntity saved = chatMessageRepository.save(chatMessage);
+        return new ChatMessageDto(
+                saved.getId(),
+                saved.getType(),
+                saved.getSender(),
+                saved.getContent(),
+                saved.getImageUrl(),
+                saved.getSendAt().format(formatter),
+                saved.getInitialUnreadCount()
+        );
     }
 
     @Transactional(readOnly = true)
     public List<ChatMessageDto> findMessagesByRoomId(String roomId) {
         return chatMessageRepository.findByChatRoom_RoomId(roomId).stream()
                 .map(entity -> new ChatMessageDto(
+                        entity.getId(),
                         entity.getType(),
                         entity.getSender(),
                         entity.getContent(),
@@ -66,4 +74,21 @@ public class ChatMessageService {
                 ))
                 .collect(Collectors.toList());
     }
+
+    @Transactional
+    public List<ReadUpdateItem> decrementUnreadCounts(String roomId, String username, LocalDateTime lastReadAt) {
+        if (lastReadAt == null) {
+            return List.of();
+        }
+        List<Long> ids = chatMessageRepository.findUnreadCountIds(roomId, username, lastReadAt);
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        chatMessageRepository.decrementUnreadCountsByIds(ids);
+        return chatMessageRepository.findUnreadCountsByIds(ids).stream()
+                .map(row -> new ReadUpdateItem(((Number) row[0]).longValue(), ((Number) row[1]).intValue()))
+                .collect(Collectors.toList());
+    }
+
+    public record ReadUpdateItem(Long messageId, Integer unreadCount) {}
 }
