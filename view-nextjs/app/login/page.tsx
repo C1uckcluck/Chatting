@@ -22,7 +22,11 @@ export default function LoginPage() {
             });
 
             if (response.ok) {
-                localStorage.setItem('chatUsername', username);
+                const data = await response.json();
+                localStorage.setItem('chatUsername', data.username ?? username);
+                if (data.nickname) {
+                    localStorage.setItem('chatNickname', data.nickname);
+                }
                 router.push('/');
             } else {
                 const errorMsg = await response.text();

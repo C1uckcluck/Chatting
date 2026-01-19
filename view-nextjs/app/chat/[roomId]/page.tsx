@@ -30,12 +30,13 @@ export default function ChatRoom() {
 
     useEffect(() => {
         const savedUsername = localStorage.getItem('chatUsername');
+        const savedNickname = localStorage.getItem('chatNickname');
         if (!savedUsername) {
             alert('사용자 정보가 없습니다. 로비로 돌아갑니다.');
             router.push('/');
             return;
         }
-        setSender(savedUsername);
+        setSender(savedNickname || savedUsername);
 
         if (!roomId) return;
 

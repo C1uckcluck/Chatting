@@ -72,6 +72,7 @@ export default function Lobby() {
         try {
             await fetch('/auth/logout', { method: 'POST' });
             localStorage.removeItem('chatUsername');
+            localStorage.removeItem('chatNickname');
             router.push('/login');
         } catch (error) {
             console.error('Logout failed', error);
@@ -82,7 +83,7 @@ export default function Lobby() {
         <div className="container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>채팅 로비</h2>
-                <button onClick={handleLogout} style={{ padding: '5px 10px', fontSize: '0.9em', backgroundColor: '#dc3545' }}>
+                <button className="ghost-button" onClick={handleLogout}>
                     로그아웃
                 </button>
             </div>
