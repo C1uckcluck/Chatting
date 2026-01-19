@@ -16,6 +16,7 @@ import websocket.demo.service.MemberService;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -33,7 +34,7 @@ class AuthControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("회원가입 API 통합 테스트")
+    @DisplayName("회원가입 API 성공")
     void signup_success() throws Exception {
         SignupDto signupDto = new SignupDto("user", "pw", "nick");
 
@@ -46,31 +47,28 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("로그인 API 통합 테스트")
+    @DisplayName("로그인 API 성공")
     void login_success() throws Exception {
-        // given
         memberService.signup("user", "pw", "nick");
 
         LoginDto loginDto = new LoginDto("user", "pw");
 
-        // when & then
         mockMvc.perform(post("/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginDto)))
                 .andExpect(status().isOk())
-                .andExpect(content().string("로그인 성공"));
+                .andExpect(jsonPath("$.username").value("user"))
+                .andExpect(jsonPath("$.nickname").value("nick"));
     }
 
     @Test
-    @DisplayName("로그인 실패 - 잘못된 비밀번호")
+    @DisplayName("로그인 실패 - 비밀번호 오류")
     void login_fail_wrong_password() throws Exception {
-        // given
         memberService.signup("user", "pw", "nick");
 
         LoginDto loginDto = new LoginDto("user", "wrong_pw");
 
-        // when & then
         mockMvc.perform(post("/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
