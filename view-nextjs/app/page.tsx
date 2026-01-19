@@ -1,11 +1,9 @@
+﻿'use client';
 
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-// 서버에서 받아올 채팅방 DTO 타입
 interface ChatRoomDto {
     roomId: string;
     name: string;
@@ -18,19 +16,15 @@ export default function Lobby() {
     const router = useRouter();
 
     useEffect(() => {
-        // 로그인 시 저장했던 사용자 이름 가져오기 (표시용)
         const savedUsername = localStorage.getItem('chatUsername');
         setUsername(savedUsername);
-        
         fetchRooms();
     }, []);
 
-    // GET /chat/rooms API 호출
     const fetchRooms = async () => {
         try {
             const response = await fetch('/chat/rooms');
             if (response.status === 401 || response.status === 403) {
-                // 인증되지 않은 경우 로그인 페이지로 이동
                 router.push('/login');
                 return;
             }
@@ -40,17 +34,16 @@ export default function Lobby() {
             const data: ChatRoomDto[] = await response.json();
             setRooms(data);
         } catch (error) {
-            console.error("Error fetching rooms:", error);
+            console.error('Error fetching rooms:', error);
         }
     };
 
-    // POST /chat/rooms API 호출
     const createRoom = async () => {
         if (!newRoomName.trim()) {
-            alert('채팅방 이름을 입력해주세요.');
+            alert('채팅방 이름을 입력해 주세요.');
             return;
         }
-        
+
         try {
             const response = await fetch('/chat/rooms', {
                 method: 'POST',
@@ -71,7 +64,7 @@ export default function Lobby() {
             setNewRoomName('');
             await fetchRooms();
         } catch (error) {
-            console.error("Error creating room:", error);
+            console.error('Error creating room:', error);
         }
     };
 
@@ -81,20 +74,24 @@ export default function Lobby() {
             localStorage.removeItem('chatUsername');
             router.push('/login');
         } catch (error) {
-            console.error("Logout failed", error);
+            console.error('Logout failed', error);
         }
     };
 
     return (
         <div className="container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Chat Lobby</h2>
+                <h2>채팅 로비</h2>
                 <button onClick={handleLogout} style={{ padding: '5px 10px', fontSize: '0.9em', backgroundColor: '#dc3545' }}>
                     로그아웃
                 </button>
             </div>
-            
-            {username && <p style={{ textAlign: 'center', color: '#666' }}>환영합니다, <strong>{username}</strong>님!</p>}
+
+            {username && (
+                <p style={{ textAlign: 'center', color: '#666' }}>
+                    안녕하세요, <strong>{username}</strong>님.
+                </p>
+            )}
 
             <div className="input-group">
                 <input
@@ -110,11 +107,9 @@ export default function Lobby() {
             <div id="room-list" style={{ marginTop: '20px' }}>
                 <h3>채팅방 목록</h3>
                 <ul>
-                    {rooms.map(room => (
+                    {rooms.map((room) => (
                         <li key={room.roomId}>
-                            <Link href={`/chat/${room.roomId}`}>
-                                {room.name}
-                            </Link>
+                            <Link href={`/chat/${room.roomId}`}>{room.name}</Link>
                         </li>
                     ))}
                 </ul>

@@ -1,9 +1,8 @@
-
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
     const [username, setUsername] = useState('');
@@ -12,7 +11,7 @@ export default function LoginPage() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         try {
             const response = await fetch('/auth/login', {
                 method: 'POST',
@@ -23,8 +22,6 @@ export default function LoginPage() {
             });
 
             if (response.ok) {
-                // 로그인 성공 시 세션 쿠키는 브라우저가 자동으로 관리합니다.
-                // 사용자 이름을 나중에 쓰기 위해 저장할 수 있습니다.
                 localStorage.setItem('chatUsername', username);
                 router.push('/');
             } else {
@@ -64,7 +61,9 @@ export default function LoginPage() {
                 </div>
             </form>
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                <p>계정이 없으신가요? <Link href="/signup">회원가입</Link></p>
+                <p>
+                    계정이 없나요? <Link href="/signup">회원가입</Link>
+                </p>
             </div>
         </div>
     );

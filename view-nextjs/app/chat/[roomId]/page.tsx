@@ -1,13 +1,11 @@
-'use client';
+﻿'use client';
 
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
-import { useParams } from 'next/navigation'; // Import useParams
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
-// 메시지 타입을 정의합니다.
 interface ChatMessage {
     type: 'ENTER' | 'TALK' | 'LEAVE';
     sender: string;
@@ -28,14 +26,12 @@ export default function ChatRoom() {
 
     const clientRef = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
-
     const effectRan = useRef(false);
 
-    // 컴포넌트 마운트 시 사용자 이름과 방 정보를 가져옵니다.
     useEffect(() => {
         const savedUsername = localStorage.getItem('chatUsername');
         if (!savedUsername) {
-            alert('사용자 이름이 설정되지 않았습니다. 로비로 돌아갑니다.');
+            alert('사용자 정보가 없습니다. 로비로 돌아갑니다.');
             router.push('/');
             return;
         }
@@ -45,29 +41,25 @@ export default function ChatRoom() {
 
         const fetchRoomData = async () => {
             try {
-                // Fetch room name
-                const nameResponse = await fetch(`http://localhost:8080/chat/rooms/${roomId}`);
+                const nameResponse = await fetch(`/chat/rooms/${roomId}`);
                 if (nameResponse.ok) {
                     const roomData = await nameResponse.json();
                     setRoomName(roomData.name);
                 }
 
-                // Fetch message history
-                const messagesResponse = await fetch(`http://localhost:8080/chat/rooms/${roomId}/messages`);
+                const messagesResponse = await fetch(`/chat/rooms/${roomId}/messages`);
                 if (messagesResponse.ok) {
                     const history = await messagesResponse.json();
                     setMessages(history);
                 }
 
-                // Mark messages as read
-                await fetch(`http://localhost:8080/chat/rooms/${roomId}/read`, {
+                await fetch(`/chat/rooms/${roomId}/read`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'text/plain',
                     },
                     body: savedUsername,
                 });
-
             } catch (error) {
                 console.error('Error fetching room data:', error);
             }
@@ -76,16 +68,13 @@ export default function ChatRoom() {
         fetchRoomData();
     }, [roomId, router]);
 
-    // WebSocket 연결 로직
     useEffect(() => {
-        // sender가 설정된 후에만 연결을 시도합니다. 또는 effectRan.current가 true인 경우
         if (!sender || !roomId || effectRan.current === true) {
             return;
         }
 
-        // 1. STOMP 클라이언트 생성 및 연결
         const client = new Client({
-            webSocketFactory: () => new SockJS("http://localhost:8080/ws-stomp"),
+            webSocketFactory: () => new SockJS('http://localhost:8080/ws-stomp'),
             connectHeaders: {
                 username: sender,
             },
@@ -98,24 +87,23 @@ export default function ChatRoom() {
         clientRef.current = client;
 
         client.onConnect = (frame) => {
-            console.log('STOMP 연결 성공:', frame);
+            console.log('STOMP connected:', frame);
 
             const subscriptionDestination = `/sub/${roomId}`;
             subscriptionRef.current = client.subscribe(subscriptionDestination, (message: IMessage) => {
                 const receivedMessage: ChatMessage = JSON.parse(message.body);
-                setMessages(prevMessages => [...prevMessages, receivedMessage]);
+                setMessages((prevMessages) => [...prevMessages, receivedMessage]);
             });
-            console.log(`구독 시작: ${subscriptionDestination}`);
+            console.log(`Subscribed: ${subscriptionDestination}`);
         };
 
         client.onStompError = (frame) => {
-            console.error('브로커 오류:', frame);
+            console.error('Broker error:', frame);
         };
 
         client.activate();
         effectRan.current = true;
 
-        // 컴포넌트 언마운트 시 연결 해제
         return () => {
             if (clientRef.current && clientRef.current.connected) {
                 console.log('Disconnecting STOMP client...');
@@ -134,8 +122,8 @@ export default function ChatRoom() {
                 type: 'TALK',
                 sender: sender,
                 content: messageInput,
-                sendAt: '', // 서버에서 설정
-                unreadCount: 0 // 서버에서 설정
+                sendAt: '',
+                unreadCount: 0,
             };
 
             clientRef.current.publish({
@@ -144,14 +132,14 @@ export default function ChatRoom() {
             });
             setMessageInput('');
         } else {
-            alert('메시지를 입력하거나 연결 상태를 확인하세요.');
+            alert('메시지를 입력하고 연결 상태를 확인해 주세요.');
         }
     };
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     useEffect(() => {
@@ -161,9 +149,9 @@ export default function ChatRoom() {
     return (
         <div className="container">
             <div style={{ marginBottom: '10px' }}>
-                <Link href="/">← 로비로 돌아가기</Link>
+                <Link href="/">로비로 돌아가기</Link>
             </div>
-            <h3 id="roomTitle">{roomName || '채팅방 로딩 중...'}</h3>
+            <h3 id="roomTitle">{roomName || '채팅방을 불러오는 중...'}</h3>
             <ul id="messages">
                 {messages.map((msg, index) => {
                     const isSentByMe = msg.sender === sender;

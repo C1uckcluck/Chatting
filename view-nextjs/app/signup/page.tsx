@@ -1,5 +1,4 @@
-
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,7 +11,7 @@ export default function SignupPage() {
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         try {
             const response = await fetch('/auth/signup', {
                 method: 'POST',
@@ -23,7 +22,7 @@ export default function SignupPage() {
             });
 
             if (response.ok) {
-                alert('회원가입 성공! 로그인해주세요.');
+                alert('회원가입이 완료되었습니다. 로그인해 주세요.');
                 router.push('/login');
             } else {
                 const errorMsg = await response.text();
@@ -67,12 +66,15 @@ export default function SignupPage() {
                     />
                 </div>
                 <div className="input-group">
-                    <button type="submit" style={{ width: '100%' }}>가입하기</button>
+                    <button type="submit" style={{ width: '100%' }}>회원가입</button>
                 </div>
             </form>
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                <button onClick={() => router.push('/login')} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer' }}>
-                    이미 계정이 있나요? 로그인
+                <button
+                    onClick={() => router.push('/login')}
+                    style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer' }}
+                >
+                    로그인으로 돌아가기
                 </button>
             </div>
         </div>
