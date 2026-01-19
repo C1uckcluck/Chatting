@@ -12,14 +12,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.PageRequest;
 
 import lombok.RequiredArgsConstructor;
 import websocket.demo.dto.ApiResponse;
 import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.dto.ChatMessageType;
 import websocket.demo.dto.ChatRoomDto;
+import websocket.demo.dto.PagedResponse;
 import websocket.demo.dto.RoomParticipantDto;
 import websocket.demo.dto.PresenceUpdateDto;
 import websocket.demo.service.ChatMessageService;
@@ -41,8 +44,20 @@ public class ChatRoomController {
 
     // 모든 채팅방 목록 반환
     @GetMapping("/rooms")
-    public ApiResponse<List<ChatRoomDto>> getAllRooms() {
-        return ApiResponse.success(chatRoomService.findAll());
+    public ApiResponse<PagedResponse<ChatRoomDto>> getAllRooms(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size
+    ) {
+        var pageable = PageRequest.of(page, size);
+        var result = chatRoomService.findAllPaged(pageable);
+        var payload = new PagedResponse<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
+        return ApiResponse.success(payload);
     }
 
     // 내가 접속한 채팅방 리스트 조회

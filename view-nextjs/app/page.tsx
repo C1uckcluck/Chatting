@@ -15,32 +15,44 @@ interface ApiResponse<T> {
     message?: string | null;
 }
 
+interface PagedResponse<T> {
+    items: T[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+}
+
 export default function Lobby() {
     const [rooms, setRooms] = useState<ChatRoomDto[]>([]);
     const [myRooms, setMyRooms] = useState<ChatRoomDto[]>([]);
     const [newRoomName, setNewRoomName] = useState<string>('');
     const [username, setUsername] = useState<string | null>(null);
+    const [roomsPage, setRoomsPage] = useState(0);
+    const [roomsTotalPages, setRoomsTotalPages] = useState(0);
     const router = useRouter();
 
     useEffect(() => {
         const savedUsername = localStorage.getItem('chatUsername');
         setUsername(savedUsername);
-        fetchRooms();
+        fetchRooms(0);
         fetchMyRooms();
     }, []);
 
-    const fetchRooms = async () => {
+    const fetchRooms = async (page: number) => {
         try {
-            const response = await fetch('/chat/rooms');
+            const response = await fetch(`/chat/rooms?page=${page}&size=8`);
             if (response.status === 401 || response.status === 403) {
                 router.push('/login');
                 return;
             }
-            const payload: ApiResponse<ChatRoomDto[]> | null = await response.json().catch(() => null);
+            const payload: ApiResponse<PagedResponse<ChatRoomDto>> | null = await response.json().catch(() => null);
             if (!response.ok || !payload?.success) {
                 throw new Error(payload?.message || 'Network response was not ok');
             }
-            setRooms(payload.data || []);
+            setRooms(payload.data?.items || []);
+            setRoomsPage(payload.data?.page ?? 0);
+            setRoomsTotalPages(payload.data?.totalPages ?? 0);
         } catch (error) {
             console.error('Error fetching rooms:', error);
         }
@@ -88,7 +100,7 @@ export default function Lobby() {
                 throw new Error(payload?.message || 'Network response was not ok');
             }
             setNewRoomName('');
-            await fetchRooms();
+            await fetchRooms(0);
             await fetchMyRooms();
         } catch (error) {
             console.error('Error creating room:', error);
@@ -113,51 +125,99 @@ export default function Lobby() {
 
     return (
         <div className="container">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>채팅 로비</h2>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <Link className="ghost-button" href="/profile">내 정보</Link>
-                    <button className="ghost-button" onClick={handleLogout}>
-                        로그아웃
-                    </button>
-                </div>
-            </div>
+            <div className="lobby-shell">
+                <header className="lobby-header">
+                    <div>
+                        <div className="lobby-eyebrow">Live rooms</div>
+                        <h2>채팅 로비</h2>
+                    </div>
+                    <div className="lobby-actions">
+                        <Link className="ghost-button" href="/profile">내 정보</Link>
+                        <button className="ghost-button" onClick={handleLogout}>
+                            로그아웃
+                        </button>
+                    </div>
+                </header>
 
-            {username && (
-                <p style={{ textAlign: 'center', color: '#666' }}>
-                    안녕하세요, <strong>{username}</strong>님.
-                </p>
-            )}
+                {username && (
+                    <p className="lobby-greeting">
+                        안녕하세요, <strong>{username}</strong>님. 지금 바로 대화를 시작하세요.
+                    </p>
+                )}
 
-            <div className="input-group">
-                <input
-                    type="text"
-                    placeholder="새 채팅방 이름"
-                    value={newRoomName}
-                    onChange={(e) => setNewRoomName(e.target.value)}
-                    onKeyUp={(e) => e.key === 'Enter' && createRoom()}
-                />
-                <button onClick={createRoom}>방 만들기</button>
-            </div>
+                <section className="lobby-create">
+                    <div className="lobby-create-title">새 채팅방</div>
+                    <div className="input-group">
+                        <input
+                            type="text"
+                            placeholder="새 채팅방 이름"
+                            value={newRoomName}
+                            onChange={(e) => setNewRoomName(e.target.value)}
+                            onKeyUp={(e) => e.key === 'Enter' && createRoom()}
+                        />
+                        <button onClick={createRoom}>방 만들기</button>
+                    </div>
+                </section>
 
-            <div id="room-list" style={{ marginTop: '20px' }}>
-                <h3>참여중인 채팅방</h3>
-                <ul>
-                    {myRooms.length === 0 && <li>참여중인 채팅방이 없습니다.</li>}
-                    {myRooms.map((room) => (
-                        <li key={room.roomId}>
-                            <Link href={`/chat/${room.roomId}`}>{room.name}</Link>
-                        </li>
-                    ))}
-                </ul>
-                <h3 style={{ marginTop: '16px' }}>전체 채팅방</h3>
-                <ul>
-                    {rooms.map((room) => (
-                        <li key={room.roomId}>
-                            <Link href={`/chat/${room.roomId}`}>{room.name}</Link>
-                        </li>
-                    ))}
-                </ul>
+                <section className="lobby-grid">
+                    <div className="room-panel">
+                        <div className="room-panel-header">
+                            <h3>참여중인 채팅방</h3>
+                            <span className="room-count">{myRooms.length}</span>
+                        </div>
+                        <ul className="room-list">
+                            {myRooms.length === 0 && (
+                                <li className="room-empty">참여중인 채팅방이 없습니다.</li>
+                            )}
+                            {myRooms.map((room) => (
+                                <li key={room.roomId} className="room-item">
+                                    <Link className="room-link" href={`/chat/${room.roomId}`}>
+                                        <span className="room-name">{room.name}</span>
+                                        <span className="room-meta">입장</span>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="room-panel room-panel-accent">
+                        <div className="room-panel-header">
+                            <h3>전체 채팅방</h3>
+                            <span className="room-count">{rooms.length}</span>
+                        </div>
+                        <ul className="room-list">
+                            {rooms.length === 0 && (
+                                <li className="room-empty">아직 생성된 채팅방이 없습니다.</li>
+                            )}
+                            {rooms.map((room) => (
+                                <li key={room.roomId} className="room-item">
+                                    <Link className="room-link" href={`/chat/${room.roomId}`}>
+                                        <span className="room-name">{room.name}</span>
+                                        <span className="room-meta">살펴보기</span>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="room-pagination">
+                            <button
+                                className="ghost-button"
+                                disabled={roomsPage <= 0}
+                                onClick={() => fetchRooms(roomsPage - 1)}
+                            >
+                                이전
+                            </button>
+                            <span className="room-page-info">
+                                {roomsTotalPages === 0 ? 0 : roomsPage + 1} / {roomsTotalPages || 1}
+                            </span>
+                            <button
+                                className="ghost-button"
+                                disabled={roomsPage + 1 >= roomsTotalPages}
+                                onClick={() => fetchRooms(roomsPage + 1)}
+                            >
+                                다음
+                            </button>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
     );
