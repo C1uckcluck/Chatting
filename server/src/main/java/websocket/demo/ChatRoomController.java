@@ -1,32 +1,35 @@
-
 package websocket.demo;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-import websocket.demo.dto.ChatRoomDto;
-import websocket.demo.dto.ApiResponse;
-import websocket.demo.dto.ChatMessageDto;
-import websocket.demo.dto.ChatMessageType;
-import websocket.demo.service.ChatRoomService;
-import websocket.demo.service.ChatMessageService;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-
-import java.util.Collection;
-import java.util.List;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import lombok.RequiredArgsConstructor;
+import websocket.demo.dto.ApiResponse;
+import websocket.demo.dto.ChatMessageDto;
+import websocket.demo.dto.ChatMessageType;
+import websocket.demo.dto.ChatRoomDto;
+import websocket.demo.service.ChatMessageService;
+import websocket.demo.service.ChatRoomService;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/chat")
-
 public class ChatRoomController {
 
     private final ChatRoomService chatRoomService;
     private final ChatMessageService chatMessageService;
     private final SimpMessagingTemplate messagingTemplate;
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     // 모든 채팅방 목록 반환
     @GetMapping("/rooms")
@@ -34,6 +37,7 @@ public class ChatRoomController {
         return ApiResponse.success(chatRoomService.findAll());
     }
 
+    // 내가 접속한 채팅방 리스트 조회
     @GetMapping("/rooms/my")
     public ApiResponse<List<ChatRoomDto>> getMyRooms(Principal principal) {
         return ApiResponse.success(chatRoomService.findByUsername(principal.getName()));
@@ -57,6 +61,7 @@ public class ChatRoomController {
         boolean joined = chatRoomService.enterRoom(roomId, username);
         if (joined) {
             ChatMessageDto chatMessage = new ChatMessageDto(
+                    null,
                     ChatMessageType.ENTER,
                     username,
                     username + "님이 입장했습니다.",
@@ -64,8 +69,8 @@ public class ChatRoomController {
                     LocalDateTime.now().format(formatter),
                     0
             );
-            chatMessageService.saveMessage(chatMessage, roomId);
-            messagingTemplate.convertAndSend("/sub/" + roomId, chatMessage);
+            ChatMessageDto saved = chatMessageService.saveMessage(chatMessage, roomId);
+            messagingTemplate.convertAndSend("/sub/" + roomId, saved);
         }
         return ApiResponse.success(null);
     }
@@ -76,6 +81,7 @@ public class ChatRoomController {
         boolean left = chatRoomService.leaveRoom(roomId, username);
         if (left) {
             ChatMessageDto chatMessage = new ChatMessageDto(
+                    null,
                     ChatMessageType.LEAVE,
                     username,
                     username + "님이 퇴장했습니다.",
@@ -83,8 +89,8 @@ public class ChatRoomController {
                     LocalDateTime.now().format(formatter),
                     0
             );
-            chatMessageService.saveMessage(chatMessage, roomId);
-            messagingTemplate.convertAndSend("/sub/" + roomId, chatMessage);
+            ChatMessageDto saved = chatMessageService.saveMessage(chatMessage, roomId);
+            messagingTemplate.convertAndSend("/sub/" + roomId, saved);
         }
         return ApiResponse.success(null);
     }
