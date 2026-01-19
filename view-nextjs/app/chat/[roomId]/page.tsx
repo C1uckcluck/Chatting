@@ -23,6 +23,7 @@ export default function ChatRoom() {
     const [messageInput, setMessageInput] = useState<string>('');
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [sender, setSender] = useState<string>('');
+    const [selfNicknames, setSelfNicknames] = useState<string[]>([]);
 
     const clientRef = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
@@ -31,17 +32,24 @@ export default function ChatRoom() {
     useEffect(() => {
         const savedUsername = localStorage.getItem('chatUsername');
         const savedNickname = localStorage.getItem('chatNickname');
+        const rawHistory = localStorage.getItem('chatNicknameHistory');
+        const history = rawHistory ? (JSON.parse(rawHistory) as string[]) : [];
         if (!savedUsername) {
             alert('사용자 정보가 없습니다. 로비로 돌아갑니다.');
             router.push('/');
             return;
         }
         setSender(savedNickname || savedUsername);
+        setSelfNicknames(
+            [savedNickname, savedUsername, ...history].filter((value): value is string => Boolean(value))
+        );
 
         if (!roomId) return;
 
         const fetchRoomData = async () => {
             try {
+                await fetch(`/chat/rooms/${roomId}/enter`, { method: 'POST' });
+
                 const nameResponse = await fetch(`/chat/rooms/${roomId}`);
                 if (nameResponse.ok) {
                     const roomData = await nameResponse.json();
@@ -77,7 +85,8 @@ export default function ChatRoom() {
         const client = new Client({
             webSocketFactory: () => new SockJS('http://localhost:8080/ws-stomp'),
             connectHeaders: {
-                username: sender,
+                username: localStorage.getItem('chatUsername') || sender,
+                nickname: sender,
             },
             debug: (str) => console.log(new Date(), str),
             reconnectDelay: 5000,
@@ -137,6 +146,24 @@ export default function ChatRoom() {
         }
     };
 
+    const handleLeaveRoom = async () => {
+        const confirmed = confirm('정말로 채팅방을 나가시겠습니까?');
+        if (!confirmed) return;
+
+        try {
+            const response = await fetch(`/chat/rooms/${roomId}/leave`, { method: 'POST' });
+            if (!response.ok) {
+                const message = await response.text();
+                alert(message || '채팅방 나가기에 실패했습니다.');
+                return;
+            }
+            router.push('/');
+        } catch (error) {
+            console.error('Leave room error:', error);
+            alert('채팅방 나가기 중 오류가 발생했습니다.');
+        }
+    };
+
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const scrollToBottom = () => {
@@ -149,13 +176,14 @@ export default function ChatRoom() {
 
     return (
         <div className="container">
-            <div style={{ marginBottom: '10px' }}>
-                <Link href="/">로비로 돌아가기</Link>
+            <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Link className="ghost-button" href="/">로비로 돌아가기</Link>
+                <button className="ghost-button" onClick={handleLeaveRoom}>채팅방 나가기</button>
             </div>
             <h3 id="roomTitle">{roomName || '채팅방을 불러오는 중...'}</h3>
             <ul id="messages">
                 {messages.map((msg, index) => {
-                    const isSentByMe = msg.sender === sender;
+                    const isSentByMe = selfNicknames.includes(msg.sender) || msg.sender === sender;
                     const isSystemMessage = msg.type !== 'TALK';
 
                     if (isSystemMessage) {

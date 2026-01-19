@@ -27,6 +27,7 @@ export default function LoginPage() {
                 if (data.nickname) {
                     localStorage.setItem('chatNickname', data.nickname);
                 }
+                localStorage.setItem('chatNicknameHistory', '[]');
                 router.push('/');
             } else {
                 const errorMsg = await response.text();
