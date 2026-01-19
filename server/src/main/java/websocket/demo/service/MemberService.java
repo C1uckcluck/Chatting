@@ -24,4 +24,36 @@ public class MemberService {
         Member member = new Member(username, encodedPassword, nickname);
         return memberRepository.save(member).getId();
     }
+
+    @Transactional
+    public void changePassword(String username, String currentPassword, String newPassword, String newPasswordConfirm) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 올바르지 않습니다.");
+        }
+        if (!newPassword.equals(newPasswordConfirm)) {
+            throw new IllegalArgumentException("새 비밀번호가 서로 일치하지 않습니다.");
+        }
+
+        member.setPassword(passwordEncoder.encode(newPassword));
+        memberRepository.save(member);
+    }
+
+    @Transactional
+    public void changeNickname(String username, String currentPassword, String newNickname) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 올바르지 않습니다.");
+        }
+        if (newNickname == null || newNickname.isBlank()) {
+            throw new IllegalArgumentException("닉네임을 입력해 주세요.");
+        }
+
+        member.setNickname(newNickname);
+        memberRepository.save(member);
+    }
 }
