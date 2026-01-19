@@ -4,6 +4,8 @@ package websocket.demo.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import websocket.demo.domain.ChatRoomEntity;
 import websocket.demo.domain.ChatRoomMemberEntity;
 import websocket.demo.dto.ChatRoomDto;
@@ -25,6 +27,11 @@ public class ChatRoomService {
         return chatRoomRepository.findAll().stream()
                 .map(room -> new ChatRoomDto(room.getRoomId(), room.getName()))
                 .collect(Collectors.toList());
+    }
+
+    public Page<ChatRoomDto> findAllPaged(Pageable pageable) {
+        return chatRoomRepository.findAll(pageable)
+                .map(room -> new ChatRoomDto(room.getRoomId(), room.getName()));
     }
 
     public ChatRoomDto findById(String roomId) {
