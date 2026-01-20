@@ -10,8 +10,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import websocket.demo.config.jwt.JwtTokenProvider;
 import websocket.demo.dto.ApiResponse;
 import websocket.demo.dto.LoginDto;
 import websocket.demo.dto.LoginResponseDto;
@@ -21,19 +20,19 @@ public class JsonLoginAuthenticationFilter extends UsernamePasswordAuthenticatio
 
     private final ObjectMapper objectMapper;
     private final MemberRepository memberRepository;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public JsonLoginAuthenticationFilter(
             AuthenticationManager authenticationManager,
-            SessionAuthenticationStrategy sessionAuthenticationStrategy,
             ObjectMapper objectMapper,
-            MemberRepository memberRepository
+            MemberRepository memberRepository,
+            JwtTokenProvider jwtTokenProvider
     ) {
         this.objectMapper = objectMapper;
         this.memberRepository = memberRepository;
+        this.jwtTokenProvider = jwtTokenProvider;
         setAuthenticationManager(authenticationManager);
         setFilterProcessesUrl("/auth/login");
-        setSessionAuthenticationStrategy(sessionAuthenticationStrategy);
-        setSecurityContextRepository(new HttpSessionSecurityContextRepository());
         setAuthenticationSuccessHandler(this::handleSuccess);
         setAuthenticationFailureHandler(this::handleFailure);
     }
@@ -65,13 +64,14 @@ public class JsonLoginAuthenticationFilter extends UsernamePasswordAuthenticatio
     ) throws IOException {
         var member = memberRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new IllegalStateException("Authenticated member not found in database."));
+        String accessToken = jwtTokenProvider.createToken(member.getUsername());
 
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         objectMapper.writeValue(
                 response.getWriter(),
-                ApiResponse.success(new LoginResponseDto(member.getUsername(), member.getNickname()))
+                ApiResponse.success(new LoginResponseDto(member.getUsername(), member.getNickname(), accessToken))
         );
     }
 

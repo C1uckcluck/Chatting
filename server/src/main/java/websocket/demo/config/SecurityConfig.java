@@ -1,8 +1,6 @@
 package websocket.demo.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.List;
-import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -10,17 +8,14 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
-import org.springframework.security.web.authentication.session.ConcurrentSessionControlAuthenticationStrategy;
-import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy;
-import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
-import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import websocket.demo.config.jwt.JwtAuthenticationFilter;
+import websocket.demo.config.jwt.JwtTokenProvider;
 import websocket.demo.dto.ApiResponse;
 import websocket.demo.repository.MemberRepository;
 
@@ -29,7 +24,12 @@ import websocket.demo.repository.MemberRepository;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JsonLoginAuthenticationFilter jsonLoginAuthenticationFilter)
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            JsonLoginAuthenticationFilter jsonLoginAuthenticationFilter,
+            JwtTokenProvider jwtTokenProvider,
+            UserDetailsService userDetailsService
+    )
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -47,11 +47,11 @@ public class SecurityConfig {
                             new ObjectMapper().writeValue(response.getWriter(), ApiResponse.success(null));
                         })
                 )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterAt(jsonLoginAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .sessionManagement(session -> session
-                        .maximumSessions(1)
-                        .maxSessionsPreventsLogin(false)
-                        .sessionRegistry(sessionRegistry())
+                .addFilterBefore(
+                        new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService),
+                        UsernamePasswordAuthenticationFilter.class
                 );
 
         return http.build();
@@ -68,37 +68,17 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SessionRegistry sessionRegistry() {
-        return new SessionRegistryImpl();
-    }
-
-    @Bean
-    public SessionAuthenticationStrategy sessionAuthenticationStrategy(SessionRegistry sessionRegistry) {
-        ConcurrentSessionControlAuthenticationStrategy concurrent =
-                new ConcurrentSessionControlAuthenticationStrategy(sessionRegistry);
-        concurrent.setMaximumSessions(1);
-        RegisterSessionAuthenticationStrategy register =
-                new RegisterSessionAuthenticationStrategy(sessionRegistry);
-        return new CompositeSessionAuthenticationStrategy(List.of(concurrent, register));
-    }
-
-    @Bean
     public JsonLoginAuthenticationFilter jsonLoginAuthenticationFilter(
             AuthenticationManager authenticationManager,
-            SessionAuthenticationStrategy sessionAuthenticationStrategy,
             ObjectMapper objectMapper,
-            MemberRepository memberRepository
+            MemberRepository memberRepository,
+            JwtTokenProvider jwtTokenProvider
     ) {
         return new JsonLoginAuthenticationFilter(
                 authenticationManager,
-                sessionAuthenticationStrategy,
                 objectMapper,
-                memberRepository
+                memberRepository,
+                jwtTokenProvider
         );
-    }
-
-    @Bean
-    public ServletListenerRegistrationBean<HttpSessionEventPublisher> httpSessionEventPublisher() {
-        return new ServletListenerRegistrationBean<>(new HttpSessionEventPublisher());
     }
 }
