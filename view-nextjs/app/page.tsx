@@ -32,6 +32,8 @@ export default function Lobby() {
     const [roomsPage, setRoomsPage] = useState(0);
     const [roomsTotalPages, setRoomsTotalPages] = useState(0);
     const [selectedRoom, setSelectedRoom] = useState<ChatRoomDto | null>(null);
+    const [showCreate, setShowCreate] = useState(false);
+    const [showUserMenu, setShowUserMenu] = useState(false);
     const router = useRouter();
 
     const getAuthHeaders = () => {
@@ -132,6 +134,7 @@ export default function Lobby() {
             if (payload?.data) {
                 setSelectedRoom(payload.data);
             }
+            setShowCreate(false);
         } catch (error) {
             console.error("Error creating room:", error);
         }
@@ -193,32 +196,65 @@ export default function Lobby() {
                         <div className="lobby-panel-subtitle">Live rooms</div>
                     </div>
                     <div className="lobby-panel-actions">
-                        <Link className="ghost-button" href="/profile">
-                            내 정보
-                        </Link>
-                        <button className="ghost-button" onClick={handleLogout}>
-                            로그아웃
+                        <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={() => setShowCreate((prev) => !prev)}
+                        >
+                            채팅방 만들기
                         </button>
                     </div>
                 </header>
 
                 {username && (
                     <p className="lobby-panel-greeting">
-                        {username}님, 지금 대화를 시작하세요.
+                        <span className="lobby-user">
+                            <button
+                                type="button"
+                                className="lobby-user-button"
+                                onClick={() => setShowUserMenu((prev) => !prev)}
+                            >
+                                {username}님
+                            </button>
+                            {showUserMenu && (
+                                <div className="lobby-user-menu">
+                                    <Link href="/profile">내 정보</Link>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowUserMenu(false);
+                                            handleLogout();
+                                        }}
+                                    >
+                                        로그아웃
+                                    </button>
+                                </div>
+                            )}
+                        </span>
+                        <span>, 지금 대화를 시작하세요.</span>
                     </p>
                 )}
 
-                <section className="lobby-create">
-                    <div className="lobby-create-title">새 채팅방</div>
+                <section className={`lobby-create ${showCreate ? "is-open" : ""}`}>
+                    <div className="lobby-create-title">
+                        <span>새 채팅방</span>
+                        <button
+                            type="button"
+                            className="ghost-button"
+                            onClick={() => setShowCreate(false)}
+                        >
+                            닫기
+                        </button>
+                    </div>
                     <div className="input-group">
                         <input
                             type="text"
-                            placeholder="새 채팅방 이름"
+                            placeholder="채팅방 이름을 입력하세요"
                             value={newRoomName}
                             onChange={(e) => setNewRoomName(e.target.value)}
                             onKeyUp={(e) => e.key === "Enter" && createRoom()}
                         />
-                        <button onClick={createRoom}>방 만들기</button>
+                        <button onClick={createRoom}>생성</button>
                     </div>
                 </section>
 
