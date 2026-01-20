@@ -59,7 +59,7 @@ public class ChatMessageController {
             throw new IllegalArgumentException("Empty file");
         }
         if (file.getSize() > 1L * 1024 * 1024) {
-            throw new IllegalArgumentException("Image size must be 3MB or less");
+            throw new IllegalArgumentException("Image size must be 1MB or less");
         }
         String contentType = file.getContentType();
         String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "image" : file.getOriginalFilename());
