@@ -34,6 +34,9 @@ export default function LoginPage() {
                 if (data.nickname) {
                     localStorage.setItem('chatNickname', data.nickname);
                 }
+                if (data.accessToken) {
+                    localStorage.setItem('chatAccessToken', data.accessToken);
+                }
                 localStorage.setItem('chatNicknameHistory', '[]');
                 router.push('/');
             } else {

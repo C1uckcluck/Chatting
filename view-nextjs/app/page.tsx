@@ -32,6 +32,11 @@ export default function Lobby() {
     const [roomsTotalPages, setRoomsTotalPages] = useState(0);
     const router = useRouter();
 
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('chatAccessToken');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
     useEffect(() => {
         const savedUsername = localStorage.getItem('chatUsername');
         setUsername(savedUsername);
@@ -41,7 +46,11 @@ export default function Lobby() {
 
     const fetchRooms = async (page: number) => {
         try {
-            const response = await fetch(`/chat/rooms?page=${page}&size=8`);
+            const response = await fetch(`/chat/rooms?page=${page}&size=8`, {
+                headers: {
+                    ...getAuthHeaders(),
+                },
+            });
             if (response.status === 401 || response.status === 403) {
                 router.push('/login');
                 return;
@@ -60,7 +69,11 @@ export default function Lobby() {
 
     const fetchMyRooms = async () => {
         try {
-            const response = await fetch('/chat/rooms/my');
+            const response = await fetch('/chat/rooms/my', {
+                headers: {
+                    ...getAuthHeaders(),
+                },
+            });
             if (response.status === 401 || response.status === 403) {
                 router.push('/login');
                 return;
@@ -86,6 +99,7 @@ export default function Lobby() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/plain',
+                    ...getAuthHeaders(),
                 },
                 body: newRoomName,
             });
@@ -117,6 +131,7 @@ export default function Lobby() {
             localStorage.removeItem('chatUsername');
             localStorage.removeItem('chatNickname');
             localStorage.removeItem('chatNicknameHistory');
+            localStorage.removeItem('chatAccessToken');
             router.push('/login');
         } catch (error) {
             console.error('Logout failed', error);

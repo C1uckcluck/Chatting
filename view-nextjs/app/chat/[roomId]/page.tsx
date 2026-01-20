@@ -56,6 +56,19 @@ export default function ChatRoom() {
     const readDebounceTimer = useRef<NodeJS.Timeout | null>(null);
     const pendingReadUsername = useRef<string | null>(null);
 
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem("chatAccessToken");
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
+    const handleAuthError = (response: Response) => {
+        if (response.status === 401 || response.status === 403) {
+            router.push("/login");
+            return true;
+        }
+        return false;
+    };
+
     useEffect(() => {
         const savedUsername = localStorage.getItem("chatUsername");
         const savedNickname = localStorage.getItem("chatNickname");
@@ -77,9 +90,24 @@ export default function ChatRoom() {
 
         const fetchRoomData = async () => {
             try {
-                await fetch(`/chat/rooms/${roomId}/enter`, { method: "POST" });
+                const enterResponse = await fetch(`/chat/rooms/${roomId}/enter`, {
+                    method: "POST",
+                    headers: {
+                        ...getAuthHeaders(),
+                    },
+                });
+                if (handleAuthError(enterResponse)) {
+                    return;
+                }
 
-                const nameResponse = await fetch(`/chat/rooms/${roomId}`);
+                const nameResponse = await fetch(`/chat/rooms/${roomId}`, {
+                    headers: {
+                        ...getAuthHeaders(),
+                    },
+                });
+                if (handleAuthError(nameResponse)) {
+                    return;
+                }
                 if (nameResponse.ok) {
                     const payload: ApiResponse<{ name: string }> | null =
                         await nameResponse.json().catch(() => null);
@@ -90,7 +118,15 @@ export default function ChatRoom() {
 
                 const messagesResponse = await fetch(
                     `/chat/rooms/${roomId}/messages`,
+                    {
+                        headers: {
+                            ...getAuthHeaders(),
+                        },
+                    },
                 );
+                if (handleAuthError(messagesResponse)) {
+                    return;
+                }
                 if (messagesResponse.ok) {
                     const payload: ApiResponse<ChatMessage[]> | null =
                         await messagesResponse.json().catch(() => null);
@@ -101,7 +137,15 @@ export default function ChatRoom() {
 
                 const participantsResponse = await fetch(
                     `/chat/rooms/${roomId}/participants`,
+                    {
+                        headers: {
+                            ...getAuthHeaders(),
+                        },
+                    },
                 );
+                if (handleAuthError(participantsResponse)) {
+                    return;
+                }
                 if (participantsResponse.ok) {
                     const payload: ApiResponse<Participant[]> | null =
                         await participantsResponse.json().catch(() => null);
@@ -124,6 +168,7 @@ export default function ChatRoom() {
             method: "POST",
             headers: {
                 "Content-Type": "text/plain",
+                ...getAuthHeaders(),
             },
             body: username,
         });
@@ -150,12 +195,14 @@ export default function ChatRoom() {
             return;
         }
 
+        const accessToken = localStorage.getItem("chatAccessToken");
         const client = new Client({
             webSocketFactory: () =>
                 new SockJS("http://localhost:8080/ws-stomp"),
             connectHeaders: {
                 username: localStorage.getItem("chatUsername") || sender,
                 nickname: sender,
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             },
             debug: (str) => console.log(new Date(), str),
             reconnectDelay: 5000,
@@ -314,7 +361,13 @@ export default function ChatRoom() {
         try {
             const response = await fetch(`/chat/rooms/${roomId}/leave`, {
                 method: "POST",
+                headers: {
+                    ...getAuthHeaders(),
+                },
             });
+            if (handleAuthError(response)) {
+                return;
+            }
             const payload: ApiResponse<null> | null = await response
                 .json()
                 .catch(() => null);
@@ -351,8 +404,14 @@ export default function ChatRoom() {
             formData.append("file", file);
             const response = await fetch(`/chat/rooms/${roomId}/images`, {
                 method: "POST",
+                headers: {
+                    ...getAuthHeaders(),
+                },
                 body: formData,
             });
+            if (handleAuthError(response)) {
+                return;
+            }
             const payloadText = await response.text();
             let payload: ApiResponse<string> | null = null;
             try {

@@ -1,7 +1,6 @@
 package websocket.demo.config.handler;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.format.DateTimeFormatter;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
@@ -9,18 +8,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import websocket.demo.domain.ChatRoomEntity;
 import websocket.demo.domain.ChatRoomMemberEntity;
+import websocket.demo.dto.ChatMessageType;
+import websocket.demo.dto.PresenceUpdateDto;
 import websocket.demo.repository.ChatRoomJpaRepository;
 import websocket.demo.repository.ChatRoomMemberJpaRepository;
 import websocket.demo.service.ChatMessageService;
 import websocket.demo.service.RoomPresenceService;
-import websocket.demo.dto.PresenceUpdateDto;
-import websocket.demo.dto.ChatMessageType;
-
-import java.time.format.DateTimeFormatter;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @RequiredArgsConstructor
@@ -32,9 +30,7 @@ public class SessionEventHandler {
     private final RoomPresenceService roomPresenceService;
     private final ChatRoomJpaRepository chatRoomRepository;
     private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
-    private final Map<String, String> sessionRoomIdMap = new ConcurrentHashMap<>();
-    private final Map<String, String> sessionUsernameMap = new ConcurrentHashMap<>();
-    private final Map<String, String> sessionDisplayNameMap = new ConcurrentHashMap<>();
+    private final WebSocketSessionRegistry sessionRegistry;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     @EventListener
@@ -56,8 +52,7 @@ public class SessionEventHandler {
             displayName = username;
         }
 
-        sessionUsernameMap.put(sessionId, username);
-        sessionDisplayNameMap.put(sessionId, displayName);
+        sessionRegistry.registerUser(sessionId, username, displayName);
         log.info("New WebSocket connection: sessionId={}, username={}", sessionId, username);
     }
 
@@ -69,9 +64,9 @@ public class SessionEventHandler {
 
         if (destination != null) {
             String roomId = destination.substring(destination.lastIndexOf('/') + 1);
-            sessionRoomIdMap.put(sessionId, roomId);
+            sessionRegistry.registerRoom(sessionId, roomId);
 
-            String username = sessionUsernameMap.get(sessionId);
+            String username = sessionRegistry.getUsername(sessionId);
 
             ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
                     .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
@@ -84,10 +79,7 @@ public class SessionEventHandler {
                             }
                     );
 
-            String displayName = sessionDisplayNameMap.get(sessionId);
-            if (displayName == null) {
-                displayName = username;
-            }
+            String displayName = sessionRegistry.getDisplayName(sessionId);
             if (roomPresenceService.markOnline(roomId, username)) {
                 simpMessagingTemplate.convertAndSend(
                         "/sub/" + roomId,
@@ -104,24 +96,19 @@ public class SessionEventHandler {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         String sessionId = headerAccessor.getSessionId();
 
-        String roomId = sessionRoomIdMap.get(sessionId);
-        String username = sessionUsernameMap.get(sessionId);
+        String roomId = sessionRegistry.getRoomId(sessionId);
+        String username = sessionRegistry.getUsername(sessionId);
 
         if (roomId != null && username != null) {
             log.info("User {} disconnected from room {}", sessionId, roomId);
-            String displayName = sessionDisplayNameMap.get(sessionId);
-            if (displayName == null) {
-                displayName = username;
-            }
+            String displayName = sessionRegistry.getDisplayName(sessionId);
             if (roomPresenceService.markOffline(roomId, username)) {
                 simpMessagingTemplate.convertAndSend(
                         "/sub/" + roomId,
                         new PresenceUpdateDto(ChatMessageType.PRESENCE_UPDATE, username, displayName, false)
                 );
             }
-            sessionRoomIdMap.remove(sessionId);
-            sessionUsernameMap.remove(sessionId);
-            sessionDisplayNameMap.remove(sessionId);
+            sessionRegistry.removeSession(sessionId);
         }
     }
 }
