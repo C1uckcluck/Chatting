@@ -1,19 +1,19 @@
-
 package websocket.demo.service;
-
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import websocket.demo.domain.ChatRoomEntity;
-import websocket.demo.domain.ChatRoomMemberEntity;
-import websocket.demo.dto.ChatRoomDto;
-import websocket.demo.repository.ChatRoomJpaRepository;
-import websocket.demo.repository.ChatRoomMemberJpaRepository;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import websocket.demo.domain.ChatRoomEntity;
+import websocket.demo.domain.ChatRoomMemberEntity;
+import websocket.demo.dto.ChatRoomDto;
+import websocket.demo.dto.RoomParticipantDto;
+import websocket.demo.repository.ChatRoomJpaRepository;
+import websocket.demo.repository.ChatRoomMemberJpaRepository;
+import websocket.demo.repository.MemberRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +22,8 @@ public class ChatRoomService {
 
     private final ChatRoomJpaRepository chatRoomRepository;
     private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
+    private final MemberRepository memberRepository;
+    private final RoomPresenceService roomPresenceService;
 
     public List<ChatRoomDto> findAll() {
         return chatRoomRepository.findAll().stream()
@@ -48,6 +50,22 @@ public class ChatRoomService {
 
     public List<String> findUsernamesByRoomId(String roomId) {
         return chatRoomMemberRepository.findUsernamesByRoomId(roomId);
+    }
+
+    public List<RoomParticipantDto> getRoomParticipants(String roomId) {
+        return chatRoomMemberRepository.findParticipantsByRoomId(roomId).stream()
+                .map(participant -> new RoomParticipantDto(
+                        participant.getUsername(),
+                        participant.getNickname(),
+                        roomPresenceService.isOnline(roomId, participant.getUsername())
+                ))
+                .toList();
+    }
+
+    public String findNicknameByUsername(String username) {
+        return memberRepository.findByUsername(username)
+                .map(m -> m.getNickname())
+                .orElse(username);
     }
 
     @Transactional
