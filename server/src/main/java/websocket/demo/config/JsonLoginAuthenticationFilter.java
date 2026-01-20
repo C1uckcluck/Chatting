@@ -64,7 +64,7 @@ public class JsonLoginAuthenticationFilter extends UsernamePasswordAuthenticatio
             Authentication authentication
     ) throws IOException {
         var member = memberRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found in database."));
+                .orElseThrow(() -> new IllegalStateException("Authenticated member not found in database."));
 
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType("application/json");
