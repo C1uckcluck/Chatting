@@ -1,4 +1,7 @@
-# Gemini Code Review 가이드라인
+# Gemini Code Review Guide Line
+
+**IMPORTANT: ALL RESPONSES MUST BE IN KOREAN.**
+**중요: 모든 리뷰 응답과 요약은 반드시 한국어로만 작성하세요.**
 
 ## 1. 기본 원칙
 
