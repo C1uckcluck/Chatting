@@ -1,33 +1,39 @@
 
 package websocket.demo;
 
-import lombok.RequiredArgsConstructor;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.util.StringUtils;
+
+import lombok.RequiredArgsConstructor;
 import websocket.demo.dto.ApiResponse;
 import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.service.ChatMessageService;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.UUID;
-import java.util.List;
+import websocket.demo.service.ChatRoomService;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/chat")
 public class ChatMessageController {
 
+
+    private static final List<String> ALLOWED_EXTENTIONS = List.of(".png", ".jpg", ".jpeg", ".gif", ".webp");
+
     private final ChatMessageService chatMessageService;
+    private final ChatRoomService chatRoomService;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -42,18 +48,24 @@ public class ChatMessageController {
             @PathVariable String roomId,
             @RequestPart("file") MultipartFile file
     ) throws IOException {
+        try {
+            UUID.fromString(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid roomId format");
+        }
+        chatRoomService.findById(roomId);
+
         if (file.isEmpty()) {
             throw new IllegalArgumentException("Empty file");
         }
-        if (file.getSize() > 3L * 1024 * 1024) {
-            throw new IllegalArgumentException("Image size must be 3MB or less");
+        if (file.getSize() > 1L * 1024 * 1024) {
+            throw new IllegalArgumentException("Image size must be 1MB or less");
         }
         String contentType = file.getContentType();
         String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "image" : file.getOriginalFilename());
         String lowerName = originalName.toLowerCase();
         boolean hasImageType = contentType != null && contentType.startsWith("image/");
-        boolean hasImageExt = lowerName.endsWith(".png") || lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")
-                || lowerName.endsWith(".gif") || lowerName.endsWith(".webp");
+        boolean hasImageExt = ALLOWED_EXTENTIONS.stream().anyMatch(lowerName::endsWith);
         if (!hasImageType && !hasImageExt) {
             throw new IllegalArgumentException("Only image uploads are allowed");
         }
