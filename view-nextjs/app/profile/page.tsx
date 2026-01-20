@@ -24,10 +24,19 @@ export default function ProfilePage() {
     const [nicknamePassword, setNicknamePassword] = useState('');
     const [nickname, setNickname] = useState('');
 
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('chatAccessToken');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await fetch('/members/me');
+                const response = await fetch('/members/me', {
+                    headers: {
+                        ...getAuthHeaders(),
+                    },
+                });
                 if (response.status === 401 || response.status === 403) {
                     router.push('/login');
                     return;
@@ -56,6 +65,7 @@ export default function ProfilePage() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...getAuthHeaders(),
                 },
                 body: JSON.stringify({
                     currentPassword: passwordCurrent,
@@ -87,6 +97,7 @@ export default function ProfilePage() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...getAuthHeaders(),
                 },
                 body: JSON.stringify({
                     currentPassword: nicknamePassword,
