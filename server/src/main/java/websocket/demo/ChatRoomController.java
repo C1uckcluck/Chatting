@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +24,7 @@ import websocket.demo.dto.RoomParticipantDto;
 import websocket.demo.dto.PresenceUpdateDto;
 import websocket.demo.service.ChatMessageService;
 import websocket.demo.service.ChatRoomService;
+import websocket.demo.service.MessageBroadcastService;
 import websocket.demo.service.RoomPresenceService;
 
 @RestController
@@ -34,7 +34,7 @@ public class ChatRoomController {
 
     private final ChatRoomService chatRoomService;
     private final ChatMessageService chatMessageService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final MessageBroadcastService messageBroadcastService;
     private final RoomPresenceService roomPresenceService;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -95,7 +95,7 @@ public class ChatRoomController {
                     0
             );
             ChatMessageDto saved = chatMessageService.saveMessage(chatMessage, roomId);
-            messagingTemplate.convertAndSend("/sub/" + roomId, saved);
+            messageBroadcastService.send("/sub/" + roomId, saved);
         }
         return ApiResponse.success(null);
     }
@@ -115,10 +115,10 @@ public class ChatRoomController {
                     0
             );
             ChatMessageDto saved = chatMessageService.saveMessage(chatMessage, roomId);
-            messagingTemplate.convertAndSend("/sub/" + roomId, saved);
+            messageBroadcastService.send("/sub/" + roomId, saved);
 
             if (roomPresenceService.forceOffline(roomId, username)) {
-                messagingTemplate.convertAndSend(
+                messageBroadcastService.send(
                         "/sub/" + roomId,
                         new PresenceUpdateDto(
                                 ChatMessageType.PRESENCE_UPDATE,

@@ -11,3 +11,8 @@ services:
       - "3307:3306"
     volumes:
       - ../db/data:/var/lib/mysql
+  redis:
+    image: redis:7.2
+    container_name: redis_chat
+    ports:
+      - "6379:6379"

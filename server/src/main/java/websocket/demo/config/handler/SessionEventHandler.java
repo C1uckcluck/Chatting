@@ -2,7 +2,6 @@ package websocket.demo.config.handler;
 
 import java.time.format.DateTimeFormatter;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
@@ -18,6 +17,7 @@ import websocket.demo.dto.PresenceUpdateDto;
 import websocket.demo.repository.ChatRoomJpaRepository;
 import websocket.demo.repository.ChatRoomMemberJpaRepository;
 import websocket.demo.service.ChatMessageService;
+import websocket.demo.service.MessageBroadcastService;
 import websocket.demo.service.RoomPresenceService;
 
 @Component
@@ -25,7 +25,7 @@ import websocket.demo.service.RoomPresenceService;
 @Slf4j
 public class SessionEventHandler {
 
-    private final SimpMessagingTemplate simpMessagingTemplate;
+    private final MessageBroadcastService messageBroadcastService;
     private final ChatMessageService chatMessageService;
     private final RoomPresenceService roomPresenceService;
     private final ChatRoomJpaRepository chatRoomRepository;
@@ -81,7 +81,7 @@ public class SessionEventHandler {
 
             String displayName = sessionRegistry.getDisplayName(sessionId);
             if (roomPresenceService.markOnline(roomId, username)) {
-                simpMessagingTemplate.convertAndSend(
+                messageBroadcastService.send(
                         "/sub/" + roomId,
                         new PresenceUpdateDto(ChatMessageType.PRESENCE_UPDATE, username, displayName, true)
                 );
@@ -103,7 +103,7 @@ public class SessionEventHandler {
             log.info("User {} disconnected from room {}", sessionId, roomId);
             String displayName = sessionRegistry.getDisplayName(sessionId);
             if (roomPresenceService.markOffline(roomId, username)) {
-                simpMessagingTemplate.convertAndSend(
+                messageBroadcastService.send(
                         "/sub/" + roomId,
                         new PresenceUpdateDto(ChatMessageType.PRESENCE_UPDATE, username, displayName, false)
                 );
