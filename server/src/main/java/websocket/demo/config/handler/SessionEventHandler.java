@@ -2,12 +2,12 @@ package websocket.demo.config.handler;
 
 import java.time.format.DateTimeFormatter;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
+import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +17,9 @@ import websocket.demo.dto.ChatMessageType;
 import websocket.demo.dto.PresenceUpdateDto;
 import websocket.demo.repository.ChatRoomJpaRepository;
 import websocket.demo.repository.ChatRoomMemberJpaRepository;
+import websocket.demo.redis.RoomRedisSubscriptionManager;
 import websocket.demo.service.ChatMessageService;
+import websocket.demo.service.MessageBroadcastService;
 import websocket.demo.service.RoomPresenceService;
 
 @Component
@@ -25,12 +27,13 @@ import websocket.demo.service.RoomPresenceService;
 @Slf4j
 public class SessionEventHandler {
 
-    private final SimpMessagingTemplate simpMessagingTemplate;
+    private final MessageBroadcastService messageBroadcastService;
     private final ChatMessageService chatMessageService;
     private final RoomPresenceService roomPresenceService;
     private final ChatRoomJpaRepository chatRoomRepository;
     private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
     private final WebSocketSessionRegistry sessionRegistry;
+    private final RoomRedisSubscriptionManager roomRedisSubscriptionManager;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     @EventListener
@@ -64,7 +67,9 @@ public class SessionEventHandler {
 
         if (destination != null) {
             String roomId = destination.substring(destination.lastIndexOf('/') + 1);
-            sessionRegistry.registerRoom(sessionId, roomId);
+            String subscriptionId = headerAccessor.getSubscriptionId();
+            sessionRegistry.registerRoom(sessionId, roomId, subscriptionId);
+            roomRedisSubscriptionManager.subscribe(roomId);
 
             String username = sessionRegistry.getUsername(sessionId);
 
@@ -81,7 +86,7 @@ public class SessionEventHandler {
 
             String displayName = sessionRegistry.getDisplayName(sessionId);
             if (roomPresenceService.markOnline(roomId, username)) {
-                simpMessagingTemplate.convertAndSend(
+                messageBroadcastService.send(
                         "/sub/" + roomId,
                         new PresenceUpdateDto(ChatMessageType.PRESENCE_UPDATE, username, displayName, true)
                 );
@@ -96,6 +101,10 @@ public class SessionEventHandler {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         String sessionId = headerAccessor.getSessionId();
 
+        var roomIds = sessionRegistry.getRoomIds(sessionId);
+        for (String roomId : roomIds) {
+            roomRedisSubscriptionManager.unsubscribe(roomId);
+        }
         String roomId = sessionRegistry.getRoomId(sessionId);
         String username = sessionRegistry.getUsername(sessionId);
 
@@ -103,12 +112,22 @@ public class SessionEventHandler {
             log.info("User {} disconnected from room {}", sessionId, roomId);
             String displayName = sessionRegistry.getDisplayName(sessionId);
             if (roomPresenceService.markOffline(roomId, username)) {
-                simpMessagingTemplate.convertAndSend(
+                messageBroadcastService.send(
                         "/sub/" + roomId,
                         new PresenceUpdateDto(ChatMessageType.PRESENCE_UPDATE, username, displayName, false)
                 );
             }
             sessionRegistry.removeSession(sessionId);
+        }
+    }
+
+    @EventListener
+    public void handleWebSocketUnsubscribeListener(SessionUnsubscribeEvent event) {
+        StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+        String subscriptionId = headerAccessor.getSubscriptionId();
+        String roomId = sessionRegistry.removeSubscription(subscriptionId);
+        if (roomId != null) {
+            roomRedisSubscriptionManager.unsubscribe(roomId);
         }
     }
 }

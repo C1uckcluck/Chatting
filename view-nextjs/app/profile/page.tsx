@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { apiUrl } from '../lib/api';
 
 interface MemberProfile {
     username: string;
@@ -32,7 +33,7 @@ export default function ProfilePage() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await fetch('/members/me', {
+                const response = await fetch(apiUrl('/members/me'), {
                     headers: {
                         ...getAuthHeaders(),
                     },
@@ -61,7 +62,7 @@ export default function ProfilePage() {
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const response = await fetch('/members/me/password', {
+            const response = await fetch(apiUrl('/members/me/password'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ export default function ProfilePage() {
         e.preventDefault();
         try {
             const previousNickname = profile?.nickname;
-            const response = await fetch('/members/me/nickname', {
+            const response = await fetch(apiUrl('/members/me/nickname'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

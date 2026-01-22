@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.RestController;
 import websocket.demo.config.handler.WebSocketSessionRegistry;
 import websocket.demo.domain.Member;
@@ -12,6 +11,7 @@ import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.dto.ChatMessageType;
 import websocket.demo.repository.MemberRepository;
 import websocket.demo.service.ChatMessageService;
+import websocket.demo.service.MessageBroadcastService;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -21,7 +21,7 @@ import java.time.format.DateTimeFormatter;
 @AllArgsConstructor
 public class ChatController {
 
-    private final SimpMessagingTemplate template; // 특정 사용자에게 메세지를 보내는데 사용되는 STOMP Template
+    private final MessageBroadcastService messageBroadcastService; // 특정 사용자에게 메세지를 보내는데 사용되는 STOMP Template
     private final ChatMessageService chatMessageService;
     private final MemberRepository memberRepository;
     private final WebSocketSessionRegistry sessionRegistry;
@@ -61,7 +61,7 @@ public class ChatController {
             );
 
             ChatMessageDto saved = chatMessageService.saveMessage(messageToSend, roomId);
-            template.convertAndSend("/sub/" + roomId, saved);
+            messageBroadcastService.send("/sub/" + roomId, saved);
         }
     }
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiUrl } from '../lib/api';
 
 interface ApiResponse<T> {
     success: boolean;
@@ -19,7 +20,7 @@ export default function SignupPage() {
         e.preventDefault();
 
         try {
-            const response = await fetch('/auth/signup', {
+            const response = await fetch(apiUrl('/auth/signup'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
