@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import SockJS from "sockjs-client";
+import { apiUrl, wsUrl } from "../../lib/api";
 
 interface ChatMessage {
     type:
@@ -90,7 +91,7 @@ export default function ChatRoom() {
 
         const fetchRoomData = async () => {
             try {
-                const enterResponse = await fetch(`/chat/rooms/${roomId}/enter`, {
+                const enterResponse = await fetch(apiUrl(`/chat/rooms/${roomId}/enter`), {
                     method: "POST",
                     headers: {
                         ...getAuthHeaders(),
@@ -100,7 +101,7 @@ export default function ChatRoom() {
                     return;
                 }
 
-                const nameResponse = await fetch(`/chat/rooms/${roomId}`, {
+                const nameResponse = await fetch(apiUrl(`/chat/rooms/${roomId}`), {
                     headers: {
                         ...getAuthHeaders(),
                     },
@@ -117,7 +118,7 @@ export default function ChatRoom() {
                 }
 
                 const messagesResponse = await fetch(
-                    `/chat/rooms/${roomId}/messages`,
+                    apiUrl(`/chat/rooms/${roomId}/messages`),
                     {
                         headers: {
                             ...getAuthHeaders(),
@@ -136,7 +137,7 @@ export default function ChatRoom() {
                 }
 
                 const participantsResponse = await fetch(
-                    `/chat/rooms/${roomId}/participants`,
+                    apiUrl(`/chat/rooms/${roomId}/participants`),
                     {
                         headers: {
                             ...getAuthHeaders(),
@@ -164,7 +165,7 @@ export default function ChatRoom() {
     }, [roomId, router]);
 
     const markAsRead = async (username: string) => {
-        await fetch(`/chat/rooms/${roomId}/read`, {
+        await fetch(apiUrl(`/chat/rooms/${roomId}/read`), {
             method: "POST",
             headers: {
                 "Content-Type": "text/plain",
@@ -198,7 +199,7 @@ export default function ChatRoom() {
         const accessToken = localStorage.getItem("chatAccessToken");
         const client = new Client({
             webSocketFactory: () =>
-                new SockJS("http://localhost:8080/ws-stomp"),
+                new SockJS(wsUrl("/ws-stomp")),
             connectHeaders: {
                 username: localStorage.getItem("chatUsername") || sender,
                 nickname: sender,
@@ -359,7 +360,7 @@ export default function ChatRoom() {
         if (!confirmed) return;
 
         try {
-            const response = await fetch(`/chat/rooms/${roomId}/leave`, {
+            const response = await fetch(apiUrl(`/chat/rooms/${roomId}/leave`), {
                 method: "POST",
                 headers: {
                     ...getAuthHeaders(),
@@ -402,7 +403,7 @@ export default function ChatRoom() {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const response = await fetch(`/chat/rooms/${roomId}/images`, {
+            const response = await fetch(apiUrl(`/chat/rooms/${roomId}/images`), {
                 method: "POST",
                 headers: {
                     ...getAuthHeaders(),

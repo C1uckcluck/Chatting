@@ -8,6 +8,7 @@
 - server: Spring Boot 3 + WebSocket(STOMP) 기반의 채팅 백엔드
 - view-nextjs: Next.js 15(React 19) 기반의 채팅 프런트엔드
 - REST 응답은 공통 포맷(`ApiResponse`) 사용, 이미지 업로드/읽음 카운트/접속 상태 제공
+- STOMP 브로드캐스트는 Redis Pub/Sub을 통해 멀티 인스턴스 전파
 
 ## 디렉토리 구조
 
@@ -18,7 +19,7 @@
 
 ## 실행 방법(로컬)
 
-- DB: `server/docker-compose.yml`로 MySQL 8 컨테이너 실행(3307 -> 3306 매핑)
+- DB/Redis: `server/docker-compose.yml`로 MySQL 8 + Redis 7 컨테이너 실행(3307 -> 3306, 6379 -> 6379)
 - server: Java 17 필요, `./gradlew bootRun` (기본 8080)
 - view-nextjs: `npm install` 후 `npm run dev` (기본 3000)
 
@@ -38,19 +39,22 @@
 - 클라이언트는 connectHeaders로 `username`/`nickname` 전달
 - 메시지는 서버에서 저장 후 브로드캐스트
 - 추가 이벤트: `READ_UPDATE`, `PRESENCE_UPDATE`
+- Redis Pub/Sub 채널: `stomp-broadcast:{roomId}` (해당 방 구독자가 있을 때만 구독)
 
 ## 프런트 프록시 및 통신 규칙
 
 - `view-nextjs/next.config.ts`에서 `/auth/*`, `/chat/rooms/*`, `/members/*`, `/uploads/*`는 `http://localhost:8080`로 rewrite
-- 채팅방 페이지는 메시지/읽음 처리 요청을 `http://localhost:8080`으로 직접 호출
+- 프런트는 `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_WS_BASE_URL`로 API/WS 연결 주소를 지정
 - 로그인 성공 시 `localStorage`에 `chatUsername`, `chatNickname` 저장
 
 ## 보안/데이터 설정
 
 - 서버는 세션 기반 인증, `/auth/**`, `/ws-stomp/**`, `/uploads/**`는 인증 없이 접근 가능
+- CORS 허용: `http://localhost:3000`, `http://localhost:3001` (credentials 허용)
 - 업로드 경로: `server/src/main/resources/application.properties`의 `app.upload.dir` (기본 `uploads`)
 - DB 연결: `server/src/main/resources/application.properties`에서 MySQL `chatdb` 사용
 - JPA `ddl-auto=update`
+- Redis 연결: `spring.data.redis.host`, `spring.data.redis.port`
 
 ## 테스트
 
@@ -72,3 +76,10 @@
 - unreadCount는 메시지마다 현재 읽지 않은 인원 수(방 참여자 기준)
 - 읽음 처리: `/chat/rooms/{roomId}/read` 호출 시 서버가 해당 구간 메시지 unreadCount 감소 후 `READ_UPDATE` 브로드캐스트
 - 접속 상태: WebSocket 구독/해제 이벤트로 `PRESENCE_UPDATE` 브로드캐스트
+
+## 다중 인스턴스 메모
+
+- 서버 포트 변경 예시: `./gradlew bootRun --args="--server.port=8081"`
+- 프런트 포트/서버 연결 예시(Windows CMD):
+  - 8080: `set NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` + `set NEXT_PUBLIC_WS_BASE_URL=http://localhost:8080`
+  - 8081: `set NEXT_PUBLIC_API_BASE_URL=http://localhost:8081` + `set NEXT_PUBLIC_WS_BASE_URL=http://localhost:8081`

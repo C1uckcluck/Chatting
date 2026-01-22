@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { apiUrl } from './lib/api';
 
 interface ChatRoomDto {
     roomId: string;
@@ -46,7 +47,7 @@ export default function Lobby() {
 
     const fetchRooms = async (page: number) => {
         try {
-            const response = await fetch(`/chat/rooms?page=${page}&size=8`, {
+            const response = await fetch(apiUrl(`/chat/rooms?page=${page}&size=8`), {
                 headers: {
                     ...getAuthHeaders(),
                 },
@@ -69,7 +70,7 @@ export default function Lobby() {
 
     const fetchMyRooms = async () => {
         try {
-            const response = await fetch('/chat/rooms/my', {
+            const response = await fetch(apiUrl('/chat/rooms/my'), {
                 headers: {
                     ...getAuthHeaders(),
                 },
@@ -95,7 +96,7 @@ export default function Lobby() {
         }
 
         try {
-            const response = await fetch('/chat/rooms', {
+            const response = await fetch(apiUrl('/chat/rooms'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/plain',
@@ -123,7 +124,7 @@ export default function Lobby() {
 
     const handleLogout = async () => {
         try {
-            const response = await fetch('/auth/logout', { method: 'POST' });
+            const response = await fetch(apiUrl('/auth/logout'), { method: 'POST' });
             const payload: ApiResponse<null> | null = await response.json().catch(() => null);
             if (!response.ok || !payload?.success) {
                 throw new Error(payload?.message || 'Logout failed');

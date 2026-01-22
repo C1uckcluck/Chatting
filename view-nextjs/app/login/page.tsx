@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { apiUrl } from '../lib/api';
 
 interface ApiResponse<T> {
     success: boolean;
@@ -19,7 +20,7 @@ export default function LoginPage() {
         e.preventDefault();
 
         try {
-            const response = await fetch('/auth/login', {
+            const response = await fetch(apiUrl('/auth/login'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
