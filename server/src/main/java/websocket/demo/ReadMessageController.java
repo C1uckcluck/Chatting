@@ -20,7 +20,11 @@ public class ReadMessageController {
     private final MessageBroadcastService messageBroadcastService;
 
     @PostMapping("/rooms/{roomId}/read")
-    public ApiResponse<Void> markAsRead(@PathVariable String roomId, @RequestBody String username) {
+    public ApiResponse<Void> markAsRead(@PathVariable String roomId, java.security.Principal principal) {
+        if (principal == null) {
+            return ApiResponse.failure("인증 정보가 없습니다.");
+        }
+        String username = principal.getName();
         var previous = lastReadTimestampService.updateLastReadTimestamp(roomId, username);
         var updates = chatMessageService.decrementUnreadCounts(roomId, username, previous).stream()
                 .map(item -> new ReadUpdateMessageDto.ReadUpdateItemDto(item.messageId(), item.unreadCount()))

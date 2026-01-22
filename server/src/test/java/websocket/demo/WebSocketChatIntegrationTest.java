@@ -1,5 +1,7 @@
 package websocket.demo;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.stomp.*;
@@ -27,6 +30,7 @@ import websocket.demo.dto.LoginDto;
 import websocket.demo.dto.SignupDto;
 import websocket.demo.dto.ApiResponse;
 import websocket.demo.dto.ChatRoomDto;
+import websocket.demo.dto.CreateChatRoomRequest;
 
 import java.lang.reflect.Type;
 import java.util.Collections;
@@ -49,7 +53,8 @@ public class WebSocketChatIntegrationTest {
     private WebSocketStompClient stompClient;
 
     private String jsessionId; // 로그인 후 획득한 세션 ID
-    private String roomId; // 생성된 채팅방 ID
+    private String roomId;
+    private String accessToken; // 생성된 채팅방 ID
 
     @BeforeEach
     public void setup() {
@@ -79,6 +84,13 @@ public class WebSocketChatIntegrationTest {
         LoginDto loginDto = new LoginDto("wsUser", "password");
         ResponseEntity<String> response = restTemplate.postForEntity("/auth/login", loginDto, String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        try {
+            JsonNode payload = new ObjectMapper().readTree(response.getBody());
+            accessToken = payload.path("data").path("accessToken").asText(null);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to parse login response.", ex);
+        }
         
         // 세션 쿠키 추출
         List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
@@ -96,10 +108,15 @@ public class WebSocketChatIntegrationTest {
     private void createChatRoom() {
         // 채팅방 생성 (헤더에 쿠키 포함)
         HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
         if (jsessionId != null) {
             headers.add("Cookie", jsessionId);
         }
-        HttpEntity<String> request = new HttpEntity<>("Test Room", headers);
+        if (accessToken != null) {
+            headers.add("Authorization", "Bearer " + accessToken);
+        }
+        HttpEntity<CreateChatRoomRequest> request =
+                new HttpEntity<>(new CreateChatRoomRequest("Test Room", 10), headers);
         
         // ChatRoomController.createRoom은 @RequestBody String name을 받음
         ResponseEntity<ApiResponse<ChatRoomDto>> response = restTemplate.exchange(
@@ -146,7 +163,15 @@ public class WebSocketChatIntegrationTest {
         };
 
         // when: 웹소켓 연결
-        StompSession session = stompClient.connectAsync(wsUrl, headers, sessionHandler).get(5, TimeUnit.SECONDS);
+        StompHeaders connectHeaders = new StompHeaders();
+        connectHeaders.add("username", "wsUser");
+        connectHeaders.add("nickname", "wsNick");
+        if (accessToken != null) {
+            connectHeaders.add("Authorization", "Bearer " + accessToken);
+        }
+        StompSession session = stompClient
+                .connectAsync(wsUrl, headers, connectHeaders, sessionHandler)
+                .get(5, TimeUnit.SECONDS);
 
         // 구독 (Subscribe)
         BlockingQueue<ChatMessageDto> blockingQueue = new LinkedBlockingQueue<>();
@@ -182,19 +207,20 @@ public class WebSocketChatIntegrationTest {
         session.send(publishUrl, messageToSend);
         System.out.println("Message Sent");
 
-        // then: 메시지 수신 대기 (ENTER 메시지가 먼저 올 수 있음)
-        ChatMessageDto firstMessage = blockingQueue.poll(5, TimeUnit.SECONDS);
-        assertThat(firstMessage).isNotNull();
-        System.out.println("First Message: " + firstMessage.content());
-
-        ChatMessageDto targetMessage = firstMessage;
-        if (firstMessage.type() == ChatMessageType.ENTER) {
-            // ENTER 메시지라면 다음 메시지를 기다림 (TALK)
-            targetMessage = blockingQueue.poll(5, TimeUnit.SECONDS);
-            assertThat(targetMessage).isNotNull();
-            System.out.println("Second Message: " + targetMessage.content());
+        ChatMessageDto targetMessage = null;
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            ChatMessageDto received = blockingQueue.poll(1, TimeUnit.SECONDS);
+            if (received == null) {
+                continue;
+            }
+            if (received.type() == ChatMessageType.TALK) {
+                targetMessage = received;
+                break;
+            }
         }
 
+        assertThat(targetMessage).isNotNull();
         assertThat(targetMessage.content()).isEqualTo("Hello WebSocket");
         assertThat(targetMessage.sender()).isEqualTo("wsNick"); // 로그인한 유저 닉네임 확인
     }

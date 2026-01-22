@@ -32,7 +32,7 @@ class ChatRoomControllerTest {
     @Test
     @DisplayName("참여중인 채팅방 목록 조회 성공")
     void get_my_rooms_success() throws Exception {
-        ChatRoomEntity room = new ChatRoomEntity("room-1", "Study Room");
+        ChatRoomEntity room = new ChatRoomEntity("room-1", "Study Room", 1L);
         entityManager.persist(room);
         entityManager.persist(new ChatRoomMemberEntity(room, "user"));
         entityManager.flush();
@@ -46,7 +46,7 @@ class ChatRoomControllerTest {
     @Test
     @DisplayName("채팅방 나가기 시 참여 목록에서 제외")
     void leave_room_removes_membership() throws Exception {
-        ChatRoomEntity room = new ChatRoomEntity("room-2", "Game Room");
+        ChatRoomEntity room = new ChatRoomEntity("room-2", "Game Room", 1L);
         entityManager.persist(room);
         entityManager.persist(new ChatRoomMemberEntity(room, "user"));
         entityManager.flush();
@@ -62,7 +62,7 @@ class ChatRoomControllerTest {
     @Test
     @DisplayName("채팅방 입장 시 참여 목록에 포함")
     void enter_room_adds_membership() throws Exception {
-        ChatRoomEntity room = new ChatRoomEntity("room-3", "Music Room");
+        ChatRoomEntity room = new ChatRoomEntity("room-3", "Music Room", 1L);
         entityManager.persist(room);
         entityManager.flush();
 

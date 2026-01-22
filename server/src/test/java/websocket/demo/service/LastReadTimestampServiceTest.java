@@ -28,7 +28,7 @@ class LastReadTimestampServiceTest {
     @Test
     @DisplayName("첫 읽음 갱신은 이전 시간이 없고 저장된다")
     void updateLastReadTimestampFirstTime() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-last-1", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-last-1", "Room", 1L));
 
         LocalDateTime previous = lastReadTimestampService.updateLastReadTimestamp(room.getRoomId(), "user1");
 
@@ -40,7 +40,7 @@ class LastReadTimestampServiceTest {
     @Test
     @DisplayName("두 번째 갱신은 이전 시간이 반환되고 시간이 갱신된다")
     void updateLastReadTimestampReturnsPrevious() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-last-2", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-last-2", "Room", 1L));
         lastReadTimestampService.updateLastReadTimestamp(room.getRoomId(), "user1");
         LocalDateTime first = lastReadTimestampJpaRepository
                 .findByChatRoom_RoomIdAndUsername(room.getRoomId(), "user1")
