@@ -46,7 +46,7 @@ class ChatRoomServiceTest {
     private RoomPresenceService roomPresenceService;
 
     @Test
-    @DisplayName("???? ???? ??? ? ??")
+@DisplayName("채팅방을 생성하고 조회할 수 있다")
     void createAndFindRoom() {
         memberRepository.save(new Member("owner", "pw", "nick"));
         ChatRoomDto created = chatRoomService.create("????", "owner", 10);
