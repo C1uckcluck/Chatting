@@ -138,9 +138,13 @@ class ChatRoomServiceTest {
         for(int i=0; i<numberOfThread; i++) {
             final String userId = "user" + i;
             executor.execute(() -> {
-                ChatRoomService.EnterRoomResult result = chatRoomService.enterRoom(room.getRoomId(), userId);
-                results.add(result);
-                countDownLatch.countDown();
+                try{
+                    ChatRoomService.EnterRoomResult result = chatRoomService.enterRoom(room.getRoomId(), userId);
+                    results.add(result);
+
+                } finally {
+                    countDownLatch.countDown();
+                }
             });
         }
         countDownLatch.await();
