@@ -33,6 +33,14 @@ interface ApiResponse<T> {
     message?: string | null;
 }
 
+interface RoomInfo {
+    roomId: string;
+    name: string;
+    ownerUsername?: string | null;
+    maxCapacity?: number | null;
+    currentCount?: number | null;
+}
+
 interface Participant {
     username: string;
     nickname: string;
@@ -45,6 +53,10 @@ export default function ChatRoom() {
     const roomId = params.roomId as string;
 
     const [roomName, setRoomName] = useState<string>("");
+    const [roomOwner, setRoomOwner] = useState<string | null>(null);
+    const [roomMaxCapacity, setRoomMaxCapacity] = useState<number | null>(null);
+    const [roomCurrentCount, setRoomCurrentCount] = useState<number | null>(null);
+    const [newMaxCapacity, setNewMaxCapacity] = useState<string>("");
     const [messageInput, setMessageInput] = useState<string>("");
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [sender, setSender] = useState<string>("");
@@ -117,10 +129,13 @@ export default function ChatRoom() {
                     return;
                 }
                 if (nameResponse.ok) {
-                    const payload: ApiResponse<{ name: string }> | null =
+                    const payload: ApiResponse<RoomInfo> | null =
                         await nameResponse.json().catch(() => null);
                     if (payload?.success && payload.data?.name) {
                         setRoomName(payload.data.name);
+                        setRoomOwner(payload.data.ownerUsername ?? null);
+                        setRoomMaxCapacity(payload.data.maxCapacity ?? null);
+                        setRoomCurrentCount(payload.data.currentCount ?? null);
                     }
                 }
 
@@ -180,6 +195,41 @@ export default function ChatRoom() {
             },
             body: username,
         });
+    };
+
+    const updateRoomCapacity = async () => {
+        const parsedMaxCapacity = Number.parseInt(newMaxCapacity, 10);
+        if (!Number.isFinite(parsedMaxCapacity) || parsedMaxCapacity < 1) {
+            alert("최소 참가 인원은 1명입니다.");
+            return;
+        }
+        try {
+            const response = await fetch(
+                apiUrl(`/chat/rooms/${roomId}/capacity`),
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...getAuthHeaders(),
+                    },
+                    body: JSON.stringify({ maxCapacity: parsedMaxCapacity }),
+                },
+            );
+            if (handleAuthError(response)) {
+                return;
+            }
+            const payload: ApiResponse<null> | null =
+                await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                alert(payload?.message || "채팅 인원 변경에 실패했습니다.");
+                return;
+            }
+            setRoomMaxCapacity(parsedMaxCapacity);
+            setNewMaxCapacity("");
+        } catch (error) {
+            console.error("Update capacity failed", error);
+            alert("채팅 인원 변경 중 오류가 발생했습니다.");
+        }
     };
 
     const scheduleRead = (username: string) => {
@@ -487,6 +537,41 @@ export default function ChatRoom() {
                 </button>
             </div>
             <h3 id="roomTitle">{roomName || "채팅방을 불러오는 중..."}</h3>
+            <div
+                style={{
+                    marginTop: "6px",
+                    marginBottom: "12px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                    alignItems: "center",
+                }}
+            >
+                <span style={{ fontSize: "13px", color: "#555" }}>
+                    현재 인원 {roomCurrentCount ?? 0} / {roomMaxCapacity ?? "-"}
+                </span>
+                {roomOwner &&
+                    roomOwner === localStorage.getItem("chatUsername") && (
+                        <div style={{ display: "flex", gap: "6px" }}>
+                            <input
+                                type="number"
+                                min={1}
+                                placeholder="참여가능 인원수를 입력해주세요"
+                                value={newMaxCapacity}
+                                onChange={(e) =>
+                                    setNewMaxCapacity(e.target.value)
+                                }
+                                style={{ width: "160px" }}
+                            />
+                            <button
+                                className="ghost-button"
+                                onClick={updateRoomCapacity}
+                            >
+                                인원 변경
+                            </button>
+                        </div>
+                    )}
+            </div>
             <ul id="messages">
                 {messages.map((msg, index) => {
                     const isSentByMe =
