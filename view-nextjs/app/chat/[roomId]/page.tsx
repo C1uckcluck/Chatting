@@ -100,6 +100,13 @@ export default function ChatRoom() {
                 if (handleAuthError(enterResponse)) {
                     return;
                 }
+                const enterPayload: ApiResponse<null> | null =
+                    await enterResponse.json().catch(() => null);
+                if (!enterResponse.ok || !enterPayload?.success) {
+                    alert(enterPayload?.message || "채팅방 입장에 실패했습니다.");
+                    router.push("/");
+                    return;
+                }
 
                 const nameResponse = await fetch(apiUrl(`/chat/rooms/${roomId}`), {
                     headers: {

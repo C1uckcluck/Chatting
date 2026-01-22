@@ -8,6 +8,8 @@ import { apiUrl } from './lib/api';
 interface ChatRoomDto {
     roomId: string;
     name: string;
+    maxCapacity?: number | null;
+    currentCount?: number | null;
 }
 
 interface ApiResponse<T> {
@@ -28,6 +30,7 @@ export default function Lobby() {
     const [rooms, setRooms] = useState<ChatRoomDto[]>([]);
     const [myRooms, setMyRooms] = useState<ChatRoomDto[]>([]);
     const [newRoomName, setNewRoomName] = useState<string>('');
+    const [newRoomMaxCapacity, setNewRoomMaxCapacity] = useState<string>('');
     const [username, setUsername] = useState<string | null>(null);
     const [roomsPage, setRoomsPage] = useState(0);
     const [roomsTotalPages, setRoomsTotalPages] = useState(0);
@@ -94,15 +97,23 @@ export default function Lobby() {
             alert('채팅방 이름을 입력해 주세요.');
             return;
         }
+        const parsedMaxCapacity = Number.parseInt(newRoomMaxCapacity, 10);
+        if (!Number.isFinite(parsedMaxCapacity) || parsedMaxCapacity < 1) {
+            alert('최소 참가 인원은 1명입니다.');
+            return;
+        }
 
         try {
             const response = await fetch(apiUrl('/chat/rooms'), {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'text/plain',
+                    'Content-Type': 'application/json',
                     ...getAuthHeaders(),
                 },
-                body: newRoomName,
+                body: JSON.stringify({
+                    name: newRoomName.trim(),
+                    maxCapacity: parsedMaxCapacity,
+                }),
             });
 
             if (response.status === 401 || response.status === 403) {
@@ -115,6 +126,7 @@ export default function Lobby() {
                 throw new Error(payload?.message || 'Network response was not ok');
             }
             setNewRoomName('');
+            setNewRoomMaxCapacity('');
             await fetchRooms(0);
             await fetchMyRooms();
         } catch (error) {
@@ -171,6 +183,15 @@ export default function Lobby() {
                             onChange={(e) => setNewRoomName(e.target.value)}
                             onKeyUp={(e) => e.key === 'Enter' && createRoom()}
                         />
+                        <input
+                            type="number"
+                            min={1}
+                            placeholder="참여가능 인원수를 입력해주세요"
+                            value={newRoomMaxCapacity}
+                            onChange={(e) =>
+                                setNewRoomMaxCapacity(e.target.value)
+                            }
+                        />
                         <button onClick={createRoom}>방 만들기</button>
                     </div>
                 </section>
@@ -189,7 +210,9 @@ export default function Lobby() {
                                 <li key={room.roomId} className="room-item">
                                     <Link className="room-link" href={`/chat/${room.roomId}`}>
                                         <span className="room-name">{room.name}</span>
-                                        <span className="room-meta">입장</span>
+                                        <span className="room-meta">
+                                            {room.currentCount ?? 0} / {room.maxCapacity ?? "-"}
+                                        </span>
                                     </Link>
                                 </li>
                             ))}
@@ -208,7 +231,9 @@ export default function Lobby() {
                                 <li key={room.roomId} className="room-item">
                                     <Link className="room-link" href={`/chat/${room.roomId}`}>
                                         <span className="room-name">{room.name}</span>
-                                        <span className="room-meta">살펴보기</span>
+                                        <span className="room-meta">
+                                            {room.currentCount ?? 0} / {room.maxCapacity ?? "-"}
+                                        </span>
                                     </Link>
                                 </li>
                             ))}
