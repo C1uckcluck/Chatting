@@ -11,14 +11,11 @@ import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import websocket.demo.domain.ChatRoomEntity;
-import websocket.demo.domain.ChatRoomMemberEntity;
 import websocket.demo.dto.ChatMessageType;
 import websocket.demo.dto.PresenceUpdateDto;
-import websocket.demo.repository.ChatRoomJpaRepository;
-import websocket.demo.repository.ChatRoomMemberJpaRepository;
 import websocket.demo.redis.RoomRedisSubscriptionManager;
 import websocket.demo.service.ChatMessageService;
+import websocket.demo.service.ChatRoomService;
 import websocket.demo.service.MessageBroadcastService;
 import websocket.demo.service.RoomPresenceService;
 
@@ -30,8 +27,7 @@ public class SessionEventHandler {
     private final MessageBroadcastService messageBroadcastService;
     private final ChatMessageService chatMessageService;
     private final RoomPresenceService roomPresenceService;
-    private final ChatRoomJpaRepository chatRoomRepository;
-    private final ChatRoomMemberJpaRepository chatRoomMemberRepository;
+    private final ChatRoomService chatRoomService;
     private final WebSocketSessionRegistry sessionRegistry;
     private final RoomRedisSubscriptionManager roomRedisSubscriptionManager;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -73,16 +69,16 @@ public class SessionEventHandler {
 
             String username = sessionRegistry.getUsername(sessionId);
 
-            ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
-                    .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
-            chatRoomMemberRepository.findById(new ChatRoomMemberEntity.ChatRoomMemberId(chatRoom, username))
-                    .ifPresentOrElse(
-                            member -> log.info("User {} is already a member of room {}", username, roomId),
-                            () -> {
-                                chatRoomMemberRepository.save(new ChatRoomMemberEntity(chatRoom, username));
-                                log.info("User {} added to room {}", username, roomId);
-                            }
-                    );
+            ChatRoomService.EnterRoomResult result = chatRoomService.enterRoom(roomId, username);
+            if (result == ChatRoomService.EnterRoomResult.FULL) {
+                log.info("Room {} is full. User {} cannot join via subscribe.", roomId, username);
+                return;
+            }
+            if (result == ChatRoomService.EnterRoomResult.ALREADY_JOINED) {
+                log.info("User {} is already a member of room {}", username, roomId);
+            } else {
+                log.info("User {} added to room {}", username, roomId);
+            }
 
             String displayName = sessionRegistry.getDisplayName(sessionId);
             if (roomPresenceService.markOnline(roomId, username)) {

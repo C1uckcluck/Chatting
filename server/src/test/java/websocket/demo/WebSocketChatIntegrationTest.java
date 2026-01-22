@@ -12,6 +12,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.stomp.*;
@@ -27,6 +28,7 @@ import websocket.demo.dto.LoginDto;
 import websocket.demo.dto.SignupDto;
 import websocket.demo.dto.ApiResponse;
 import websocket.demo.dto.ChatRoomDto;
+import websocket.demo.dto.CreateChatRoomRequest;
 
 import java.lang.reflect.Type;
 import java.util.Collections;
@@ -96,10 +98,12 @@ public class WebSocketChatIntegrationTest {
     private void createChatRoom() {
         // 채팅방 생성 (헤더에 쿠키 포함)
         HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
         if (jsessionId != null) {
             headers.add("Cookie", jsessionId);
         }
-        HttpEntity<String> request = new HttpEntity<>("Test Room", headers);
+        HttpEntity<CreateChatRoomRequest> request =
+                new HttpEntity<>(new CreateChatRoomRequest("Test Room", 10), headers);
         
         // ChatRoomController.createRoom은 @RequestBody String name을 받음
         ResponseEntity<ApiResponse<ChatRoomDto>> response = restTemplate.exchange(

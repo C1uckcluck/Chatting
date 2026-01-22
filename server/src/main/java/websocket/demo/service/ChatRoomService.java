@@ -1,6 +1,7 @@
 package websocket.demo.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -26,25 +27,46 @@ public class ChatRoomService {
     private final RoomPresenceService roomPresenceService;
 
     public List<ChatRoomDto> findAll() {
-        return chatRoomRepository.findAll().stream()
-                .map(room -> new ChatRoomDto(room.getRoomId(), room.getName()))
+        List<ChatRoomEntity> rooms = chatRoomRepository.findAll();
+        Map<String, Integer> counts = loadMemberCounts(rooms);
+        return rooms.stream()
+                .map(room -> new ChatRoomDto(
+                        room.getRoomId(),
+                        room.getName(),
+                        room.getMaxCapacity(),
+                        counts.getOrDefault(room.getRoomId(), 0)
+                ))
                 .collect(Collectors.toList());
     }
 
     public Page<ChatRoomDto> findAllPaged(Pageable pageable) {
-        return chatRoomRepository.findAll(pageable)
-                .map(room -> new ChatRoomDto(room.getRoomId(), room.getName()));
+        Page<ChatRoomEntity> page = chatRoomRepository.findAll(pageable);
+        Map<String, Integer> counts = loadMemberCounts(page.getContent());
+        return page.map(room -> new ChatRoomDto(
+                room.getRoomId(),
+                room.getName(),
+                room.getMaxCapacity(),
+                counts.getOrDefault(room.getRoomId(), 0)
+        ));
     }
 
     public ChatRoomDto findById(String roomId) {
         ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
-        return new ChatRoomDto(chatRoom.getRoomId(), chatRoom.getName());
+        int memberCount = (int) chatRoomMemberRepository.countByChatRoom_RoomId(roomId);
+        return new ChatRoomDto(chatRoom.getRoomId(), chatRoom.getName(), chatRoom.getMaxCapacity(), memberCount);
     }
 
     public List<ChatRoomDto> findByUsername(String username) {
-        return chatRoomMemberRepository.findChatRoomsByUsername(username).stream()
-                .map(room -> new ChatRoomDto(room.getRoomId(), room.getName()))
+        List<ChatRoomEntity> rooms = chatRoomMemberRepository.findChatRoomsByUsername(username);
+        Map<String, Integer> counts = loadMemberCounts(rooms);
+        return rooms.stream()
+                .map(room -> new ChatRoomDto(
+                        room.getRoomId(),
+                        room.getName(),
+                        room.getMaxCapacity(),
+                        counts.getOrDefault(room.getRoomId(), 0)
+                ))
                 .collect(Collectors.toList());
     }
 
@@ -69,14 +91,21 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public boolean enterRoom(String roomId, String username) {
-        if (chatRoomMemberRepository.existsByChatRoom_RoomIdAndUsername(roomId, username)) {
-            return false;
-        }
-        ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
+    public EnterRoomResult enterRoom(String roomId, String username) {
+        ChatRoomEntity chatRoom = chatRoomRepository.findByIdForUpdate(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
+        if (chatRoomMemberRepository.existsByChatRoom_RoomIdAndUsername(roomId, username)) {
+            return EnterRoomResult.ALREADY_JOINED;
+        }
+        Integer maxCapacity = chatRoom.getMaxCapacity();
+        if (maxCapacity != null) {
+            long memberCount = chatRoomMemberRepository.countByChatRoom_RoomId(roomId);
+            if (memberCount >= maxCapacity) {
+                return EnterRoomResult.FULL;
+            }
+        }
         chatRoomMemberRepository.save(new ChatRoomMemberEntity(chatRoom, username));
-        return true;
+        return EnterRoomResult.JOINED;
     }
 
     @Transactional
@@ -85,10 +114,43 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public ChatRoomDto create(String name) {
-        ChatRoomDto newRoomDto = ChatRoomDto.create(name);
-        ChatRoomEntity newRoomEntity = new ChatRoomEntity(newRoomDto.roomId(), newRoomDto.name());
+    public ChatRoomDto create(String name, Integer maxCapacity) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Room name is required.");
+        }
+        if (maxCapacity == null || maxCapacity < 1) {
+            throw new IllegalArgumentException("Max capacity must be at least 1.");
+        }
+        ChatRoomDto newRoomDto = ChatRoomDto.create(name, maxCapacity);
+        ChatRoomEntity newRoomEntity = new ChatRoomEntity(
+                newRoomDto.roomId(),
+                newRoomDto.name(),
+                newRoomDto.maxCapacity()
+        );
         chatRoomRepository.save(newRoomEntity);
-        return newRoomDto;
+        return new ChatRoomDto(
+                newRoomDto.roomId(),
+                newRoomDto.name(),
+                newRoomDto.maxCapacity(),
+                0
+        );
+    }
+
+    private Map<String, Integer> loadMemberCounts(List<ChatRoomEntity> rooms) {
+        if (rooms.isEmpty()) {
+            return Map.of();
+        }
+        List<String> roomIds = rooms.stream().map(ChatRoomEntity::getRoomId).toList();
+        return chatRoomMemberRepository.findMemberCountsByRoomIds(roomIds).stream()
+                .collect(Collectors.toMap(
+                        ChatRoomMemberJpaRepository.RoomMemberCountProjection::getRoomId,
+                        projection -> (int) projection.getMemberCount()
+                ));
+    }
+
+    public enum EnterRoomResult {
+        JOINED,
+        ALREADY_JOINED,
+        FULL
     }
 }

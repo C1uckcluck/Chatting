@@ -23,6 +23,12 @@ public interface ChatRoomMemberJpaRepository extends JpaRepository<ChatRoomMembe
             "where crm.chatRoom.roomId = :roomId")
     List<RoomParticipantProjection> findParticipantsByRoomId(@Param("roomId") String roomId);
 
+    @Query("select crm.chatRoom.roomId as roomId, count(crm) as memberCount " +
+            "from ChatRoomMemberEntity crm " +
+            "where crm.chatRoom.roomId in :roomIds " +
+            "group by crm.chatRoom.roomId")
+    List<RoomMemberCountProjection> findMemberCountsByRoomIds(@Param("roomIds") List<String> roomIds);
+
     boolean existsByChatRoom_RoomIdAndUsername(String roomId, String username);
 
     long deleteByChatRoom_RoomIdAndUsername(String roomId, String username);
@@ -31,5 +37,11 @@ public interface ChatRoomMemberJpaRepository extends JpaRepository<ChatRoomMembe
         String getUsername();
 
         String getNickname();
+    }
+
+    interface RoomMemberCountProjection {
+        String getRoomId();
+
+        long getMemberCount();
     }
 }

@@ -1,11 +1,19 @@
 package websocket.demo.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
+
 import websocket.demo.domain.ChatRoomEntity;
 import websocket.demo.domain.ChatRoomMemberEntity;
 import websocket.demo.domain.Member;
@@ -15,11 +23,7 @@ import websocket.demo.repository.ChatRoomJpaRepository;
 import websocket.demo.repository.ChatRoomMemberJpaRepository;
 import websocket.demo.repository.MemberRepository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 @SpringBootTest
-@Transactional
 class ChatRoomServiceTest {
 
     @Autowired
@@ -40,12 +44,13 @@ class ChatRoomServiceTest {
     @Test
     @DisplayName("채팅방을 생성하고 조회할 수 있다")
     void createAndFindRoom() {
-        ChatRoomDto created = chatRoomService.create("테스트방");
+        ChatRoomDto created = chatRoomService.create("테스트방", 10);
 
         ChatRoomDto found = chatRoomService.findById(created.roomId());
 
         assertThat(found.roomId()).isEqualTo(created.roomId());
         assertThat(found.name()).isEqualTo("테스트방");
+        assertThat(found.maxCapacity()).isEqualTo(10);
     }
 
     @Test
@@ -53,11 +58,11 @@ class ChatRoomServiceTest {
     void enterAndLeaveRoom() {
         ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-enter", "Room"));
 
-        boolean joined = chatRoomService.enterRoom(room.getRoomId(), "user1");
-        boolean joinedAgain = chatRoomService.enterRoom(room.getRoomId(), "user1");
+        ChatRoomService.EnterRoomResult joined = chatRoomService.enterRoom(room.getRoomId(), "user1");
+        ChatRoomService.EnterRoomResult joinedAgain = chatRoomService.enterRoom(room.getRoomId(), "user1");
 
-        assertThat(joined).isTrue();
-        assertThat(joinedAgain).isFalse();
+        assertThat(joined).isEqualTo(ChatRoomService.EnterRoomResult.JOINED);
+        assertThat(joinedAgain).isEqualTo(ChatRoomService.EnterRoomResult.ALREADY_JOINED);
         assertThat(chatRoomMemberJpaRepository.existsByChatRoom_RoomIdAndUsername(room.getRoomId(), "user1"))
                 .isTrue();
 
@@ -105,4 +110,47 @@ class ChatRoomServiceTest {
         assertThatThrownBy(() -> chatRoomService.findById("missing-room"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    @DisplayName("정원이 가득 차면 입장이 거부된다")
+    void enterRoomFailsWhenFull() {
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-full", "Room", 1));
+        chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room, "user1"));
+
+        ChatRoomService.EnterRoomResult result = chatRoomService.enterRoom(room.getRoomId(), "user2");
+
+        assertThat(result).isEqualTo(ChatRoomService.EnterRoomResult.FULL);
+    }
+
+
+    @Test
+    @DisplayName("동시에 입장 시 정원 초과 없이 한 명만 입장된다")
+    void enterRoomConcurrentOnlyOneJoins() throws Exception {
+        //given
+        final int numberOfThread = 10;
+        final int roomCapacity = 1;
+        ChatRoomEntity room = chatRoomJpaRepository.saveAndFlush(new ChatRoomEntity("room-concurrent", "Room", roomCapacity));    
+        CountDownLatch countDownLatch = new CountDownLatch(numberOfThread);
+        ExecutorService executor = Executors.newFixedThreadPool(numberOfThread);
+        List<ChatRoomService.EnterRoomResult> results = new CopyOnWriteArrayList<>();
+
+        //when
+        for(int i=0; i<numberOfThread; i++) {
+            final String userId = "user" + i;
+            executor.execute(() -> {
+                ChatRoomService.EnterRoomResult result = chatRoomService.enterRoom(room.getRoomId(), userId);
+                results.add(result);
+                countDownLatch.countDown();
+            });
+        }
+        countDownLatch.await();
+        executor.shutdown();
+
+        // then
+        final long enterCount = results.stream().filter(c -> c == ChatRoomService.EnterRoomResult.JOINED).count(); 
+        final long deniedCount = results.stream().filter(c -> c == ChatRoomService.EnterRoomResult.FULL).count(); 
+        assertThat(enterCount).isEqualTo(roomCapacity);
+        assertThat(deniedCount).isEqualTo(numberOfThread - roomCapacity);
+    }
+
 }
