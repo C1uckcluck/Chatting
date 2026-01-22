@@ -24,7 +24,7 @@ class ChatMessageJpaRepositoryTest {
     @Test
     @DisplayName("채팅방 ID로 메시지 목록을 조회한다")
     void findByChatRoomRoomIdReturnsMessages() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg", "Room", 1L));
         chatMessageJpaRepository.save(new ChatMessageEntity(
                 room, ChatMessageType.TALK, "user1", "hello", null, LocalDateTime.now(), 1));
 
@@ -37,7 +37,7 @@ class ChatMessageJpaRepositoryTest {
     @Test
     @DisplayName("읽지 않은 메시지 카운트 관련 쿼리를 검증한다")
     void unreadCountQueriesWork() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-unread", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-unread", "Room", 1L));
         LocalDateTime base = LocalDateTime.now().minusMinutes(10);
 
         ChatMessageEntity match1 = chatMessageJpaRepository.save(new ChatMessageEntity(

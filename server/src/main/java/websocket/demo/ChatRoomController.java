@@ -8,6 +8,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +23,7 @@ import websocket.demo.dto.ChatMessageDto;
 import websocket.demo.dto.ChatMessageType;
 import websocket.demo.dto.ChatRoomDto;
 import websocket.demo.dto.CreateChatRoomRequest;
+import websocket.demo.dto.UpdateChatRoomCapacityRequest;
 import websocket.demo.dto.PagedResponse;
 import websocket.demo.dto.RoomParticipantDto;
 import websocket.demo.dto.PresenceUpdateDto;
@@ -67,8 +69,8 @@ public class ChatRoomController {
 
     // 채팅방 생성
     @PostMapping("/rooms")
-    public ApiResponse<ChatRoomDto> createRoom(@RequestBody CreateChatRoomRequest request) {
-        return ApiResponse.success(chatRoomService.create(request.name(), request.maxCapacity()));
+    public ApiResponse<ChatRoomDto> createRoom(@RequestBody CreateChatRoomRequest request, Principal principal) {
+        return ApiResponse.success(chatRoomService.create(request.name(), principal.getName(), request.maxCapacity()));
     }
 
     // 특정 채팅방 정보 반환
@@ -103,6 +105,28 @@ public class ChatRoomController {
             );
             ChatMessageDto saved = chatMessageService.saveMessage(chatMessage, roomId);
             messageBroadcastService.send("/sub/" + roomId, saved);
+        }
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PatchMapping("/rooms/{roomId}/capacity")
+    public ResponseEntity<ApiResponse<Void>> updateRoomCapacity(
+            @PathVariable String roomId,
+            @RequestBody UpdateChatRoomCapacityRequest request,
+            Principal principal
+    ) {
+        ChatRoomService.UpdateCapacityResult result = chatRoomService.updateMaxCapacity(
+                roomId,
+                principal.getName(),
+                request.maxCapacity()
+        );
+        if (result == ChatRoomService.UpdateCapacityResult.FORBIDDEN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.failure("방장만 채팅 인원을 변경할 수 있습니다."));
+        }
+        if (result == ChatRoomService.UpdateCapacityResult.BELOW_CURRENT) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.failure("현재 인원보다 작은 값으로 설정할 수 없습니다."));
         }
         return ResponseEntity.ok(ApiResponse.success(null));
     }

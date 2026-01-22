@@ -10,7 +10,8 @@ import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import websocket.demo.dto.ChatMessageType;
 import websocket.demo.dto.PresenceUpdateDto;
 import websocket.demo.redis.RoomRedisSubscriptionManager;
@@ -21,9 +22,9 @@ import websocket.demo.service.RoomPresenceService;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class SessionEventHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(SessionEventHandler.class);
     private final MessageBroadcastService messageBroadcastService;
     private final ChatMessageService chatMessageService;
     private final RoomPresenceService roomPresenceService;

@@ -22,7 +22,7 @@ class LastReadTimestampJpaRepositoryTest {
     @Test
     @DisplayName("채팅방과 사용자로 마지막 읽음 시각을 조회한다")
     void findByChatRoomIdAndUsernameReturnsRecord() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-last", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-last", "Room", 1L));
         LocalDateTime lastReadAt = LocalDateTime.now().minusMinutes(5);
         lastReadTimestampJpaRepository.save(new LastReadTimestampEntity(room, "user1", lastReadAt));
 

@@ -44,7 +44,7 @@ class ChatMessageServiceTest {
     @Test
     @DisplayName("메시지 저장 시 참여자 수를 기준으로 unreadCount가 계산된다")
     void saveMessageCalculatesUnreadCount() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg-1", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg-1", "Room", 1L));
         chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room, "user1"));
         chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room, "user2"));
 
@@ -67,7 +67,7 @@ class ChatMessageServiceTest {
     @Test
     @DisplayName("채팅방 ID로 저장된 메시지를 조회한다")
     void findMessagesByRoomId() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg-2", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg-2", "Room", 1L));
         chatMessageJpaRepository.save(new ChatMessageEntity(
                 room, ChatMessageType.TALK, "user1", "hello", null, LocalDateTime.now(), 1));
 
@@ -80,7 +80,7 @@ class ChatMessageServiceTest {
     @Test
     @DisplayName("읽지 않은 메시지 카운트를 감소시키고 결과를 반환한다")
     void decrementUnreadCounts() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg-3", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-msg-3", "Room", 1L));
         LocalDateTime base = LocalDateTime.now().minusMinutes(10);
 
         ChatMessageEntity target1 = chatMessageJpaRepository.save(new ChatMessageEntity(

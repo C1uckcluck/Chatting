@@ -4,15 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import websocket.demo.domain.ChatRoomEntity;
 import websocket.demo.domain.ChatRoomMemberEntity;
@@ -24,6 +27,7 @@ import websocket.demo.repository.ChatRoomMemberJpaRepository;
 import websocket.demo.repository.MemberRepository;
 
 @SpringBootTest
+@Transactional
 class ChatRoomServiceTest {
 
     @Autowired
@@ -42,21 +46,25 @@ class ChatRoomServiceTest {
     private RoomPresenceService roomPresenceService;
 
     @Test
-    @DisplayName("채팅방을 생성하고 조회할 수 있다")
+    @DisplayName("???? ???? ??? ? ??")
     void createAndFindRoom() {
-        ChatRoomDto created = chatRoomService.create("테스트방", 10);
+        memberRepository.save(new Member("owner", "pw", "nick"));
+        ChatRoomDto created = chatRoomService.create("????", "owner", 10);
 
         ChatRoomDto found = chatRoomService.findById(created.roomId());
 
         assertThat(found.roomId()).isEqualTo(created.roomId());
-        assertThat(found.name()).isEqualTo("테스트방");
+        assertThat(found.name()).isEqualTo("????");
         assertThat(found.maxCapacity()).isEqualTo(10);
+        assertThat(found.ownerUsername()).isEqualTo("owner");
+        assertThat(found.ownerId()).isNotNull();
+        assertThat(found.currentCount()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("채팅방 참가 입장과 퇴장이 정상 동작한다")
+    @DisplayName("??? ??? ??? ????")
     void enterAndLeaveRoom() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-enter", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-enter", "Room", 1L));
 
         ChatRoomService.EnterRoomResult joined = chatRoomService.enterRoom(room.getRoomId(), "user1");
         ChatRoomService.EnterRoomResult joinedAgain = chatRoomService.enterRoom(room.getRoomId(), "user1");
@@ -74,10 +82,10 @@ class ChatRoomServiceTest {
     }
 
     @Test
-    @DisplayName("사용자 기준으로 참여 중인 채팅방을 조회한다")
+    @DisplayName("??? ???? ?? ?? ???? ????")
     void findRoomsByUsername() {
-        ChatRoomEntity room1 = chatRoomJpaRepository.save(new ChatRoomEntity("room-a", "A"));
-        ChatRoomEntity room2 = chatRoomJpaRepository.save(new ChatRoomEntity("room-b", "B"));
+        ChatRoomEntity room1 = chatRoomJpaRepository.save(new ChatRoomEntity("room-a", "A", 1L));
+        ChatRoomEntity room2 = chatRoomJpaRepository.save(new ChatRoomEntity("room-b", "B", 1L));
         chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room1, "user1"));
         chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room2, "user1"));
 
@@ -88,9 +96,9 @@ class ChatRoomServiceTest {
     }
 
     @Test
-    @DisplayName("채팅방 참가자 목록에 닉네임과 접속 상태가 반영된다")
+    @DisplayName("??? ??? ??? ???? ?? ??? ????")
     void getRoomParticipantsReturnsNicknameAndPresence() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-participants", "Room"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-participants", "Room", 1L));
         memberRepository.save(new Member("user1", "pw", "nick1"));
         chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room, "user1"));
 
@@ -105,16 +113,16 @@ class ChatRoomServiceTest {
     }
 
     @Test
-    @DisplayName("없는 채팅방 조회 시 예외가 발생한다")
+    @DisplayName("???? ??? ??? ????")
     void findRoomNotFound() {
         assertThatThrownBy(() -> chatRoomService.findById("missing-room"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    @DisplayName("정원이 가득 차면 입장이 거부된다")
+    @DisplayName("??? ?? ?? ??? ????")
     void enterRoomFailsWhenFull() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-full", "Room", 1));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-full", "Room", 1L, 1));
         chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room, "user1"));
 
         ChatRoomService.EnterRoomResult result = chatRoomService.enterRoom(room.getRoomId(), "user2");
@@ -122,39 +130,36 @@ class ChatRoomServiceTest {
         assertThat(result).isEqualTo(ChatRoomService.EnterRoomResult.FULL);
     }
 
-
     @Test
-    @DisplayName("동시에 입장 시 정원 초과 없이 한 명만 입장된다")
+    @DisplayName("??? ?? ? ?? ?? ?? ? ?? ????")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void enterRoomConcurrentOnlyOneJoins() throws Exception {
-        //given
-        final int numberOfThread = 10;
-        final int roomCapacity = 1;
-        ChatRoomEntity room = chatRoomJpaRepository.saveAndFlush(new ChatRoomEntity("room-concurrent", "Room", roomCapacity));    
-        CountDownLatch countDownLatch = new CountDownLatch(numberOfThread);
-        ExecutorService executor = Executors.newFixedThreadPool(numberOfThread);
-        List<ChatRoomService.EnterRoomResult> results = new CopyOnWriteArrayList<>();
+        ChatRoomEntity room = chatRoomJpaRepository.saveAndFlush(new ChatRoomEntity("room-concurrent", "Room", 1L, 1));
 
-        //when
-        for(int i=0; i<numberOfThread; i++) {
-            final String userId = "user" + i;
-            executor.execute(() -> {
-                try{
-                    ChatRoomService.EnterRoomResult result = chatRoomService.enterRoom(room.getRoomId(), userId);
-                    results.add(result);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        Callable<ChatRoomService.EnterRoomResult> task1 = () -> {
+            barrier.await();
+            return chatRoomService.enterRoom(room.getRoomId(), "user1");
+        };
+        Callable<ChatRoomService.EnterRoomResult> task2 = () -> {
+            barrier.await();
+            return chatRoomService.enterRoom(room.getRoomId(), "user2");
+        };
 
-                } finally {
-                    countDownLatch.countDown();
-                }
-            });
-        }
-        countDownLatch.await();
+        Future<ChatRoomService.EnterRoomResult> future1 = executor.submit(task1);
+        Future<ChatRoomService.EnterRoomResult> future2 = executor.submit(task2);
+
+        ChatRoomService.EnterRoomResult result1 = future1.get();
+        ChatRoomService.EnterRoomResult result2 = future2.get();
+
         executor.shutdown();
 
-        // then
-        final long enterCount = results.stream().filter(c -> c == ChatRoomService.EnterRoomResult.JOINED).count(); 
-        final long deniedCount = results.stream().filter(c -> c == ChatRoomService.EnterRoomResult.FULL).count(); 
-        assertThat(enterCount).isEqualTo(roomCapacity);
-        assertThat(deniedCount).isEqualTo(numberOfThread - roomCapacity);
+        assertThat(List.of(result1, result2))
+                .containsExactlyInAnyOrder(
+                        ChatRoomService.EnterRoomResult.JOINED,
+                        ChatRoomService.EnterRoomResult.FULL
+                );
+        assertThat(chatRoomMemberJpaRepository.countByChatRoom_RoomId(room.getRoomId())).isEqualTo(1);
     }
-
 }

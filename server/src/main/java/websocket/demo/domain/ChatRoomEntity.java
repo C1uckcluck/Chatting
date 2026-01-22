@@ -21,15 +21,22 @@ public class ChatRoomEntity {
 
     private String name;
 
+    private Long ownerId;
+
     private Integer maxCapacity;
 
-    public ChatRoomEntity(String roomId, String name) {
-        this(roomId, name, DEFAULT_MAX_CAPACITY);
+    public ChatRoomEntity(String roomId, String name, Long ownerId) {
+        this(roomId, name, ownerId, DEFAULT_MAX_CAPACITY);
     }
 
-    public ChatRoomEntity(String roomId, String name, Integer maxCapacity) {
+    public ChatRoomEntity(String roomId, String name, Long ownerId, Integer maxCapacity) {
         this.roomId = roomId;
         this.name = name;
+        this.ownerId = ownerId;
+        this.maxCapacity = maxCapacity;
+    }
+
+    public void updateMaxCapacity(Integer maxCapacity) {
         this.maxCapacity = maxCapacity;
     }
 }

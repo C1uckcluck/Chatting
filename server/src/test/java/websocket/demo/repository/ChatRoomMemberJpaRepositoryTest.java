@@ -26,8 +26,8 @@ class ChatRoomMemberJpaRepositoryTest {
     @Test
     @DisplayName("채팅방 멤버십 관련 쿼리들이 정상 동작한다")
     void roomMembershipQueriesWork() {
-        ChatRoomEntity room1 = chatRoomJpaRepository.save(new ChatRoomEntity("room-1", "Room 1"));
-        ChatRoomEntity room2 = chatRoomJpaRepository.save(new ChatRoomEntity("room-2", "Room 2"));
+        ChatRoomEntity room1 = chatRoomJpaRepository.save(new ChatRoomEntity("room-1", "Room 1", 1L));
+        ChatRoomEntity room2 = chatRoomJpaRepository.save(new ChatRoomEntity("room-2", "Room 2", 1L));
 
         memberRepository.save(new Member("user1", "pw", "nick1"));
         memberRepository.save(new Member("user2", "pw", "nick2"));
@@ -52,7 +52,7 @@ class ChatRoomMemberJpaRepositoryTest {
     @Test
     @DisplayName("채팅방 참가자 조회 시 닉네임을 조인으로 가져온다")
     void findParticipantsByRoomIdJoinsNickname() {
-        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-3", "Room 3"));
+        ChatRoomEntity room = chatRoomJpaRepository.save(new ChatRoomEntity("room-3", "Room 3", 1L));
         memberRepository.save(new Member("user3", "pw", "nick3"));
         chatRoomMemberJpaRepository.save(new ChatRoomMemberEntity(room, "user3"));
 
