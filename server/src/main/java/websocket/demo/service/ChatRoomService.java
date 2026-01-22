@@ -58,19 +58,15 @@ public class ChatRoomService {
     }
 
     public ChatRoomDto findById(String roomId) {
-        ChatRoomEntity chatRoom = chatRoomRepository.findById(roomId)
+        ChatRoomJpaRepository.ChatRoomDetailProjection detail = chatRoomRepository.findDetailById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));
-        int memberCount = (int) chatRoomMemberRepository.countByChatRoom_RoomId(roomId);
-        String ownerUsername = chatRoom.getOwnerId() == null
-                ? null
-                : memberRepository.findById(chatRoom.getOwnerId()).map(Member::getUsername).orElse(null);
         return new ChatRoomDto(
-                chatRoom.getRoomId(),
-                chatRoom.getName(),
-                chatRoom.getOwnerId(),
-                ownerUsername,
-                chatRoom.getMaxCapacity(),
-                memberCount
+                detail.getRoomId(),
+                detail.getName(),
+                detail.getOwnerId(),
+                detail.getOwnerUsername(),
+                detail.getMaxCapacity(),
+                (int) detail.getMemberCount()
         );
     }
 
